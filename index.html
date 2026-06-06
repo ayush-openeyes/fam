@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Room — LLM Account Manager</title>
+<style>
+:root { --bg: #ede8de; --bg2: #f5f0e8; --sb: #e5dfd4; --sb-border: rgba(160,138,108,0.28); --tile: #ffffff; --ink: #1b1712; --ink2: #67604f; --ink3: #aba090; --gold: #8a5f28; --ok: #1b6639; --warn: #b85808; --crit: #bf2c18; --fH: 'Playfair Display', Georgia, serif; --fB: 'DM Sans', sans-serif; --fM: 'JetBrains Mono', monospace; --r: 10px; --t: 165ms ease; }
+body { background:var(--bg); color:var(--ink); font-family:var(--fB); min-height:100vh; margin:0; }
+.layout { display:flex; min-height:100vh; }
+.sidebar { width:232px; background:var(--sb); border-right:1px solid var(--sb-border); display:flex; flex-direction:column; }
+.sb-brand { padding:26px 20px; border-bottom:1px solid var(--sb-border); }
+.sb-name { font-family:var(--fH); font-size:17px; font-weight:700; }
+.user-list { flex:1; padding:0 8px; }
+.u-row { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:9px; cursor:pointer; }
+.u-row.active { background:#fff; }
+.u-av { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--fH); font-size:13px; color:#fff; }
+.main-head { padding:26px 30px; border-bottom:1px solid var(--b1); display:flex; align-items:center; justify-content:space-between; }
+.ud-av { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--fH); font-size:16px; color:#fff; }
+.btn { padding:8px 15px; border-radius:7px; font-family:var(--fB); cursor:pointer; }
+.btn-ink { background:var(--ink); color:#f6f1e8; border:1px solid var(--ink); }
+.grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+.tile { background:var(--tile); border:1px solid var(--b1); border-left:3px solid var(--pc,#ccc); border-radius:var(--r); position:relative; }
+.overlay { position:fixed; inset:0; z-index:600; background:rgba(55,42,22,.38); display:flex; align-items:center; justify-content:center; padding:20px; }
+.panel { background:#fefdfa; border:1px solid var(--b2); border-radius:16px; max-width:520px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand"><div class="sb-name">Signal Room</div><div class="sb-sub">LLM Account Intelligence</div></div>
+    <div class="sb-section">People</div>
+    <div class="user-list" id="userList"></div>
+    <div class="sb-foot"><button class="add-user-btn" id="addUserBtn">+ Add person</button></div>
+  </aside>
+  <div class="main" id="mainArea"></div>
+</div>
+<div id="toasts"></div>
+<div class="overlay" id="tileOv">
+  <div class="panel">
+    <div class="mo-head"><div class="mo-title">Add LLM Account</div><button class="mo-x" id="tmX">×</button></div>
+    <div class="mo-body">
+      <div class="fg"><label>Provider</label><select id="fProv"></select></div>
+      <div class="fg"><label>Name</label><input type="text" id="fName" class="fi"></div>
+      <div class="fg"><label>Email</label><input type="email" id="fEmail" class="fi"></div>
+      <div class="fg"><label>Tier</label><input type="text" id="fTier" class="fi"></div>
+      <div class="fg"><label>Cost</label><input type="text" id="fCost" class="fi"></div>
+      <div class="fg"><label>Expires</label><input type="date" id="fExp" class="fi"></div>
+      <div class="trow"><label>Auto-renews</label><input type="checkbox" id="fRenew" checked></div>
+    </div>
+    <div class="mo-foot"><button id="tmCancel">Cancel</button><button id="tmSave" class="btn-ink">Save</button></div>
+  </div>
+</div>
+<div class="overlay" id="userOv">
+  <div class="panel">
+    <div class="mo-head"><div class="mo-title">Add Person</div><button class="mo-x" id="umX">×</button></div>
+    <div class="mo-body"><input type="text" id="uName" class="fi" placeholder="Name"><div id="colorRow"></div></div>
+    <div class="mo-foot"><button id="umCancel">Cancel</button><button id="umSave" class="btn-ink">Create</button></div>
+  </div>
+</div>
+
+<script type="module">
+import initSqlJs from 'https://cdn.jsdelivr.net/npm/sql.js@1.13.3/dist/sql-asm.js';
+const PROV = { anthropic:{n:'Anthropic',c:'#c05740'}, openai:{n:'OpenAI',c:'#2a7a5e'}, google:{n:'Google',c:'#1a5fa0'}, custom:{n:'Custom',c:'#888'} };
+const U_COLORS = ['#c05740','#2a7a5e','#1a5fa0'];
+let users=[], activeUID=null, byUser={}, editTileId=null, tileTags=[], tFilter='all', tSort='custom', pickedColor=U_COLORS[0], db=null;
+const KU='sr3:users', KA='sr3:active', KT='sr3:tiles';
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+
+async function initDB(){try{const SQL=await initSqlJs();db=new SQL.Database();db.run('CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY,name TEXT,color TEXT)');db.run('CREATE TABLE IF NOT EXISTS tiles (id TEXT PRIMARY KEY,user_id TEXT,provider TEXT,name TEXT,email TEXT,tier TEXT,cost TEXT,expiresAt TEXT,notes TEXT,renewsAuto INTEGER,preferences TEXT,order_index INTEGER)');console.log('SQLite ready');}catch(e){console.warn('DB failed:',e);db=null;}}
+function persist(){if(db){try{const sql=db.export();localStorage.setItem('sr3:db',btoa(String.fromCharCode.apply(null,sql)));}catch(e){}}localStorage.setItem(KU,JSON.stringify(users));localStorage.setItem(KA,activeUID||'');localStorage.setItem(KT,JSON.stringify(byUser));}
+function loadFromStorage(){if(!db){try{const ru=localStorage.getItem(KU),ra=localStorage.getItem(KA),rt=localStorage.getItem(KT);if(ru)users=JSON.parse(ru);if(ra)activeUID=ra||null;if(rt)byUser=JSON.parse(rt);if(activeUID&&!users.find(u=>u.id===activeUID))activeUID=users[0]?.id||null;if(!activeUID&&users.length)activeUID=users[0].id;}catch(e){}return;}try{const ur=db.query('SELECT * FROM users ORDER BY id');users=Array.from(ur).map(r=>({id:r[0].toString(),name:r[1].toString(),color:r[2].toString()}));const tr=db.query('SELECT * FROM tiles ORDER BY user_id,order_index');byUser={};for(const r of tr){const t={id:r[0].toString(),provider:r[1].toString(),name:r[2].toString(),email:r[3]?.toString()||'',tier:r[4]?.toString()||'',cost:r[5]?.toString()||'',expiresAt:r[6]?.toString()||'',notes:r[7]?.toString()||'',renewsAuto:r[8]===1,preferences:r[9]?JSON.parse(r[9]):[],order:r[10]||0};if(!byUser[t.user_id])byUser[t.user_id]=[];byUser[t.user_id].push(t);}catch(e){console.error(e);}}
+
+function seedData(){const d=n=>{const x=new Date();x.setDate(x.getDate()+n);return x.toISOString().split('T')[0];};users=[{id:'u1',name:'Shakti Sir',color:'#c05740'},{id:'u2',name:'Ayush Rajput',color:'#1a5fa0'},{id:'u3',name:'Hetvi Kothari',color:'#2a7a5e'}];activeUID='u1';byUser={u1:[{id:uid(),provider:'anthropic',name:'Claude Pro',email:'shakti@studio.io',tier:'Pro',cost:'$20/mo',expiresAt:d(47),renewsAuto:true,preferences:['coding'],order:0}],u2:[{id:uid(),provider:'openai',name:'ChatGPT Team',email:'ayush@company.com',tier:'Team',cost:'$25/mo',expiresAt:d(22),renewsAuto:true,preferences:[],order:0}],u3:[{id:uid(),provider:'groq',name:'Groq API',email:'hetvi@gmail.com',tier:'Paid',cost:'$0.06/1K',expiresAt:d(90),renewsAuto:true,preferences:['speed'],order:0}]};persist();}
+
+function status(e){if(!e)return'active';const n=new Date();n.setHours(0,0,0,0);const d=Math.round((new Date(e+'T00:00:00')-n)/86400000);if(d<0)return'expired';if(d<=7)return'critical';if(d<=30)return'expiring';return'active';}
+function dLeft(e){if(!e)return null;const n=new Date();n.setHours(0,0,0,0);return Math.round((new Date(e+'T00:00:00')-n)/86400000);}
+function initials(n){return n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+
+function tiles(){return byUser[activeUID]||[];}function setTiles(a){byUser[activeUID]=a;}
+function sortedTiles(){return [...tiles()].sort((a,b)=>(a.order||0)-(b.order||0));}
+
+function renderSidebar(){const l=document.getElementById('userList');l.innerHTML='';users.forEach(u=>{const tt=byUser[u.id]||[];const a=u.id===activeUID;const r=document.createElement('div');r.className='u-row'+(a?' active':'');r.dataset.uid=u.id;r.innerHTML='<div class="u-av" style="background:'+u.color+'">'+initials(u.name)+'</div><div class="u-info"><div class="u-name">'+u.name+'</div></div>';r.addEventListener('click',()=>switchUser(u.id));l.appendChild(r);});}
+function switchUser(id){if(id===activeUID)return;activeUID=id;tFilter='all';persist();renderSidebar();renderMain();}
+
+function renderMain(){const a=document.getElementById('mainArea');if(!users.length){a.innerHTML='<div style="padding:60px;text-align:center">No people yet<br><button class="btn btn-ink" onclick="openUserModal()">+ Add first person</button></div>';return;}if(!activeUID)activeUID=users[0].id;const u=users.find(x=>x.id===activeUID),tt=tiles();a.innerHTML='<div class="main-head"><div class="user-display"><div class="ud-av" style="background:'+u.color+'">'+initials(u.name)+'</div><div><div class="ud-name">'+u.name+'</div><div class="ud-sub">LLM Subscriptions</div></div></div><div class="head-actions"><button class="btn btn-ink" onclick="openTileModal()">+ Add LLM</button></div></div><div class="grid" id="tileGrid"></div>';renderGrid(sortedTiles());}
+
+function renderGrid(show){const g=document.getElementById('tileGrid');if(!g)return;g.innerHTML='';show.forEach((t,i)=>{const p=PROV[t.provider]||PROV.custom,s=status(t.expiresAt),dl=dLeft(t.expiresAt),off=100-(dl||365)/365*100;const el=document.createElement('div');el.className='tile';el.dataset.id=t.id;el.dataset.s=s;el.style.setProperty('--pc',p.c);el.innerHTML='<div class="t-head"><div class="t-prov"><div class="t-icon" style="color:'+p.c+'">●</div><div><div class="t-name">'+t.name+'</div><div class="t-tier">'+t.tier+'</div></div></div><div class="t-count"><div class="ring-wrap"><svg viewBox="0 0 70 70"><circle class="r-track" cx="35" cy="35" r="30"/><circle class="r-fill" cx="35" cy="35" r="30" style="stroke-dashoffset:'+off+'"/></svg><div class="ring-mid"><div class="r-num">'+dl+'</div><div class="r-unit">days</div></div></div></div>';g.appendChild(el);});}
+
+function openTileModal(id){editTileId=id||null;document.getElementById('tileOv').classList.add('open');}
+function closeTileModal(){document.getElementById('tileOv').classList.remove('open');editTileId=null;}
+function saveTileModal(){const tt=tiles();const n=document.getElementById('fName').value.trim()||'Account';if(editTileId){const i=tt.findIndex(t=>t.id===editTileId);if(i>-1)tt[i]={...tt[i],name:n};}else{tt.push({id:uid(),name:n});}setTiles(tt);persist();closeTileModal();renderMain();}
+function delTile(id){const tt=tiles(),i=tt.findIndex(t=>t.id===id);if(i>-1){tt.splice(i,1);setTiles(tt);persist();renderMain();}}
+
+function openUserModal(){document.getElementById('userOv').classList.add('open');}
+function closeUserModal(){document.getElementById('userOv').classList.remove('open');}
+function saveUserModal(){const n=document.getElementById('uName').value.trim();if(!n)return;users.push({id:uid(),name:n,color:pickedColor});byUser[users[users.length-1].id]=[];activeUID=users[users.length-1].id;persist();closeUserModal();renderSidebar();renderMain();}
+
+document.getElementById('tmX').addEventListener('click',closeTileModal);
+document.getElementById('tmCancel').addEventListener('click',closeTileModal);
+document.getElementById('tmSave').addEventListener('click',saveTileModal);
+document.getElementById('umX').addEventListener('click',closeUserModal);
+document.getElementById('umCancel').addEventListener('click',closeUserModal);
+document.getElementById('umSave').addEventListener('click',saveUserModal);
+document.getElementById('addUserBtn').addEventListener('click',openUserModal);
+document.getElementById('fProv').innerHTML=Object.entries(PROV).map(([k,v])='<option value="'+k+'">'+v.n+'</option>').join('');
+
+(async()=>{await initDB();loadFromStorage();if(users.length===0)seedData();renderSidebar();renderMain();})();
+</script>
+</body>
+</html>
