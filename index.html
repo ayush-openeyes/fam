@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Signal Room — LLM Account Manager</title>
 <style>
-:root { --bg: #ede8de; --bg2: #f5f0e8; --sb: #e5dfd4; --sb-border: rgba(160,138,108,0.28); --tile: #ffffff; --ink: #1b1712; --ink2: #67604f; --ink3: #aba090; --gold: #8a5f28; --ok: #1b6639; --warn: #b85808; --crit: #bf2c18; --fH: 'Playfair Display', Georgia, serif; --fB: 'DM Sans', sans-serif; --fM: 'JetBrains Mono', monospace; --r: 10px; --t: 165ms ease; }
+:root { --bg: #ede8de; --bg2: #f5f0e8; --sb: #e5dfd4; --sb-border: rgba(160,138,108,0.28); --b1: rgba(160,138,108,0.12); --b2: rgba(160,138,108,0.22); --tile: #ffffff; --ink: #1b1712; --ink2: #67604f; --ink3: #aba090; --gold: #8a5f28; --ok: #1b6639; --warn: #b85808; --crit: #bf2c18; --fH: 'Playfair Display', Georgia, serif; --fB: 'DM Sans', sans-serif; --fM: 'JetBrains Mono', monospace; --r: 10px; --t: 165ms ease; }
 body { background:var(--bg); color:var(--ink); font-family:var(--fB); min-height:100vh; margin:0; }
 .layout { display:flex; min-height:100vh; }
 .sidebar { width:232px; background:var(--sb); border-right:1px solid var(--sb-border); display:flex; flex-direction:column; }
@@ -21,7 +21,8 @@ body { background:var(--bg); color:var(--ink); font-family:var(--fB); min-height
 .btn-ink { background:var(--ink); color:#f6f1e8; border:1px solid var(--ink); }
 .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
 .tile { background:var(--tile); border:1px solid var(--b1); border-left:3px solid var(--pc,#ccc); border-radius:var(--r); position:relative; }
-.overlay { position:fixed; inset:0; z-index:600; background:rgba(55,42,22,.38); display:flex; align-items:center; justify-content:center; padding:20px; }
+ .overlay { position:fixed; inset:0; z-index:600; background:rgba(55,42,22,.38); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .15s ease, visibility .15s ease; }
+.overlay.open { opacity:1; visibility:visible; pointer-events:auto; }
 .panel { background:#fefdfa; border:1px solid var(--b2); border-radius:16px; max-width:520px; }
 </style>
 </head>
@@ -63,7 +64,8 @@ body { background:var(--bg); color:var(--ink); font-family:var(--fB); min-height
 import initSqlJs from 'https://cdn.jsdelivr.net/npm/sql.js@1.13.3/dist/sql-asm.js';
 const PROV = { anthropic:{n:'Anthropic',c:'#c05740'}, openai:{n:'OpenAI',c:'#2a7a5e'}, google:{n:'Google',c:'#1a5fa0'}, custom:{n:'Custom',c:'#888'} };
 const U_COLORS = ['#c05740','#2a7a5e','#1a5fa0'];
-let users=[], activeUID=null, byUser={}, editTileId=null, tileTags=[], tFilter='all', tSort='custom', pickedColor=U_COLORS[0], db=null;
+let users=[], activeUID=null, byUser={}, editTileId=null, tileTags=[], tFilter='all', tSort='custom', pickedColor=U_COLORS[0], db=null, rendering=false;
+function guard(fn){ if(rendering) return; rendering=true; try{fn();}finally{rendering=false;}}
 const KU='sr3:users', KA='sr3:active', KT='sr3:tiles';
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 
