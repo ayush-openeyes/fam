@@ -1023,7 +1023,7 @@ body::after {
       <button class="mo-x" id="umX">×</button>
     </div>
     <div class="mo-body">
-      <div class="fg"><label class="fl">Name</label><input type="text" class="fi" id="uName" placeholder="e.g. Shakti, Ayush Rajput, Hethvi Kothari…" maxlength="32"></div>
+      <div class="fg"><label class="fl">Name</label><input type="text" class="fi" id="uName" placeholder="e.g. Ayush Rajput (Work), Hetvi Kothari (Personal)…" maxlength="32"></div>
       <div class="fg"><label class="fl">Avatar Colour</label><div class="color-row" id="colorRow"></div></div>
     </div>
     <div class="mo-foot">
@@ -1079,6 +1079,26 @@ let pickedColor  = U_COLORS[0];
 // hourly tick intervals
 let hourlyTimers = {}; // { tileId: intervalId }
 
+/* ── localStorage fallback ── */
+const LS_KEY = 'signal-room-data';
+function saveLocal(){
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ users, byUser, activeUID }));
+  } catch(e) {}
+}
+function loadLocal(){
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return false;
+    const d = JSON.parse(raw);
+    if(d && Array.isArray(d.users) && d.byUser && d.activeUID){
+      users = d.users; byUser = d.byUser; activeUID = d.activeUID;
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
 const SORTS = ['custom','expiry-asc','expiry-desc','provider','cost-asc'];
 const SLBL  = {custom:'Custom','expiry-asc':'Expiry ↑','expiry-desc':'Expiry ↓',provider:'Provider A–Z','cost-asc':'Cost ↑'};
 const API_BASE = '';
@@ -1097,6 +1117,7 @@ async function api(path, method='GET', body=null) {
 async function fetchUsers() {
   const data = await api('/api/users');
   users = data.users; byUser = data.byUser; activeUID = data.activeUserId;
+  saveLocal();
 }
 
 async function createUserRemote(user) {
@@ -1112,7 +1133,7 @@ async function deleteUserRemote(id) {
 }
 
 async function createTileRemote(tile) {
-  return api('/api/tiles', 'POST', tile);
+  return api('/api/tiles', 'POST', { ...tile, userId: tile.userId || activeUID });
 }
 
 async function updateTileRemote(tile) {
@@ -1133,12 +1154,12 @@ async function persist() {
 
 async function boot(){
   try {
-    await fetchUsers();
+    const data = await fetchUsers();
+    if(data && !users.length && loadLocal()) return;
+    if(!users.length){ seedData(); saveLocal(); }
     if(activeUID && !users.find(u=>u.id===activeUID)) activeUID=users[0]?.id||null;
     if(!activeUID && users.length) activeUID=users[0].id;
-    if(users.length) return;
-  } catch(e){}
-  seedData();
+  } catch(e){ if(!loadLocal()) seedData(); saveLocal(); }
 }
 
 function seedData(){
@@ -1146,9 +1167,9 @@ function seedData(){
   // anchor: now minus some offset (in ms) to simulate mid-cycle
   const anchor=(minsAgo)=>{ const x=new Date(Date.now()-minsAgo*60000); return x.toISOString().slice(0,16); };
   users=[
-    {id:'u1',name:'Shakti',    color:'#c05740'},
-    {id:'u2',name:'Ayush Rajput', color:'#1a5fa0'},
-    {id:'u3',name:'Hethvi Kothari',color:'#2a7a5e'},
+    {id:'u1',name:'Alice Shakti Sir',    color:'#c05740'},
+    {id:'u2',name:'Ayush Rajput (Work)',   color:'#1a5fa0'},
+    {id:'u3',name:'Hetvi Kothari (Personal)',color:'#2a7a5e'},
   ];
   activeUID='u1';
   byUser={
@@ -1315,6 +1336,7 @@ function switchUser(id){
   stopAllHourlyTimers();
   activeUID=id; confirmDel=null;
   tFilter='all'; tSort='custom';
+  saveLocal();
   renderSidebar(); renderMain();
 }
 
@@ -1323,6 +1345,7 @@ function doDelUser(id){
   const name=users[i].name;
   users.splice(i,1); delete byUser[id];
   if(activeUID===id) activeUID=users[0]?.id||null;
+  saveLocal();
   confirmDel=null;
   deleteUserRemote(id).catch(()=>{}).finally(()=>{ renderSidebar(); renderMain(); toast(`${name} removed`,'🗑'); });
 }
@@ -1672,7 +1695,7 @@ function dupTile(id){
     newT.hourly={...newT.hourly, anchor:new Date().toISOString().slice(0,16)};
   }
   tt.push(newT);
-  createTileRemote(newT).then(()=>{ renderSidebar(); renderMain(); toast('Account duplicated','⎘'); }).catch(()=>{ renderSidebar(); renderMain(); });
+  createTileRemote(newT).then(()=>{ saveLocal(); renderSidebar(); renderMain(); toast('Account duplicated','⎘'); }).catch(()=>{ renderSidebar(); renderMain(); });
 }
 
 /* ─────────────────────────────────────────
@@ -1759,11 +1782,11 @@ function saveTileModal(){
   if(editTileId){
     const i=tt.findIndex(t=>t.id===editTileId);
     if(i>-1) tt[i]={...tt[i],provider:prov,name,email,tier,cost,expiresAt:exp,notes,renewsAuto:renew,preferences:prefs,hourly};
-    updateTileRemote(tt[i]).then(()=>{ renderSidebar(); renderMain(); toast('Account updated','✓'); }).catch(()=>{ renderSidebar(); renderMain(); });
+    updateTileRemote(tt[i]).then(()=>{ saveLocal(); renderSidebar(); renderMain(); toast('Account updated','✓'); }).catch(()=>{ renderSidebar(); renderMain(); });
   } else {
     const newT={id:uid(),provider:prov,name,email,tier,cost,expiresAt:exp,notes,renewsAuto:renew,preferences:prefs,hourly,order:tt.length};
     tt.push(newT);
-    createTileRemote(newT).then(()=>{ renderSidebar(); renderMain(); toast('Account added','✓'); }).catch(()=>{ renderSidebar(); renderMain(); });
+    createTileRemote(newT).then(()=>{ saveLocal(); renderSidebar(); renderMain(); toast('Account added','✓'); }).catch(()=>{ renderSidebar(); renderMain(); });
   }
   closeTileModal();
 }
@@ -1840,6 +1863,7 @@ function saveUserModal(){
   createUserRemote(u).then(()=>{
     users.push(u); byUser[u.id]=[];
     activeUID=u.id;
+    saveLocal();
     closeUserModal(); renderSidebar(); renderMain();
     toast(`${name} added`,'👤');
   }).catch((err)=>{
