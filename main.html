@@ -1154,12 +1154,17 @@ async function persist() {
 
 async function boot(){
   try {
-    const data = await fetchUsers();
-    if(data && !users.length && loadLocal()) return;
+    await fetchUsers();
+    if(!users.length && loadLocal()) { /* restored from localStorage */ }
     if(!users.length){ seedData(); saveLocal(); }
     if(activeUID && !users.find(u=>u.id===activeUID)) activeUID=users[0]?.id||null;
     if(!activeUID && users.length) activeUID=users[0].id;
-  } catch(e){ if(!loadLocal()) seedData(); saveLocal(); }
+  } catch(e){
+    if(!loadLocal()) seedData();
+    saveLocal();
+  }
+  renderSidebar();
+  renderMain();
 }
 
 function seedData(){
@@ -1861,14 +1866,15 @@ function saveUserModal(){
   if(!name){ document.getElementById('uName').focus(); return; }
   const u={id:uid(),name,color:pickedColor};
   createUserRemote(u).then(()=>{
-    users.push(u); byUser[u.id]=[];
-    activeUID=u.id;
-    saveLocal();
-    closeUserModal(); renderSidebar(); renderMain();
     toast(`${name} added`,'👤');
   }).catch((err)=>{
     console.error(err);
-    toast('Could not save','⚠');
+    toast('Saved locally (offline)','💾');
+  }).finally(()=>{
+    if(!users.find(x=>x.id===u.id)){ users.push(u); byUser[u.id]=[]; }
+    activeUID=u.id;
+    saveLocal();
+    closeUserModal(); renderSidebar(); renderMain();
   });
 }
 
@@ -1963,8 +1969,6 @@ function toast(msg,icon='✓'){
    BOOT
 ───────────────────────────────────────── */
 boot();
-renderSidebar();
-renderMain();
 </script>
 </body>
 </html>

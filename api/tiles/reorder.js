@@ -1,11 +1,11 @@
 const store = require('../../lib/store');
-const { handle } = require('../../lib/http');
+const { handle, readBody } = require('../../lib/http');
 
 module.exports = async (req, res) => {
   if (req.method === 'PUT') {
     return handle(req, res, async () => {
-      const updates = req.body && req.body.updates;
-      res.status(200).json(await store.reorderTiles(updates));
+      const body = readBody(req);
+      res.status(200).json(await store.reorderTiles(body.updates));
     });
   }
   res.setHeader('Allow', 'PUT');

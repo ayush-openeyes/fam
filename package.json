@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "check-db": "node scripts/check-db.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2"
   }
 }

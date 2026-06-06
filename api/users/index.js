@@ -1,5 +1,5 @@
 const store = require('../../lib/store');
-const { handle } = require('../../lib/http');
+const { handle, readBody } = require('../../lib/http');
 
 module.exports = async (req, res) => {
   if (req.method === 'GET') {
@@ -9,7 +9,7 @@ module.exports = async (req, res) => {
   }
   if (req.method === 'POST') {
     return handle(req, res, async () => {
-      res.status(201).json(await store.createUser(req.body));
+      res.status(201).json(await store.createUser(readBody(req)));
     });
   }
   res.setHeader('Allow', 'GET, POST');

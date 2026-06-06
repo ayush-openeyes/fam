@@ -1,10 +1,10 @@
 const store = require('../../lib/store');
-const { handle } = require('../../lib/http');
+const { handle, readBody } = require('../../lib/http');
 
 module.exports = async (req, res) => {
   if (req.method === 'POST') {
     return handle(req, res, async () => {
-      res.status(201).json(await store.createTile(req.body));
+      res.status(201).json(await store.createTile(readBody(req)));
     });
   }
   res.setHeader('Allow', 'POST');
