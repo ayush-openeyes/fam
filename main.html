@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Room — LLM Account Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────
+   TOKENS
+───────────────────────────────────────── */
+:root {
+  --bg:         #ede8de;
+  --bg2:        #f5f0e8;
+  --sb:         #e5dfd4;
+  --sb-border:  rgba(160,138,108,0.28);
+  --tile:       #ffffff;
+  --tile-h:     #fdfcf8;
+  --modal:      #fefdfa;
+  --b1:         rgba(175,152,118,0.2);
+  --b2:         rgba(158,132,96,0.32);
+  --b3:         rgba(138,100,52,0.55);
+  --ink:        #1b1712;
+  --ink2:       #67604f;
+  --ink3:       #aba090;
+  --ink4:       #d0c7b8;
+  --gold:       #8a5f28;
+  --gold-dim:   rgba(138,95,40,0.09);
+  --ok:         #1b6639;
+  --warn:       #b85808;
+  --crit:       #bf2c18;
+  --dead:       #aaa099;
+  --fH: 'Playfair Display', Georgia, serif;
+  --fB: 'DM Sans', sans-serif;
+  --fM: 'JetBrains Mono', monospace;
+  --r:  10px;
+  --s1: 0 1px 3px rgba(90,68,32,.06), 0 4px 16px rgba(90,68,32,.07);
+  --s2: 0 2px 8px rgba(90,68,32,.09), 0 14px 44px rgba(90,68,32,.13);
+  --s3: 0 20px 72px rgba(72,50,16,.22);
+  --sm: 0 28px 96px rgba(72,50,16,.2);
+  --t:  165ms ease;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { font-size:14px; -webkit-font-smoothing:antialiased; }
+body {
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--fB);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* paper grain */
+body::before {
+  content:'';
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23g)' opacity='.04'/%3E%3C/svg%3E");
+  background-size:260px 260px;
+}
+
+/* warm radial top-light */
+body::after {
+  content:'';
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(ellipse 90% 55% at 50% 0%, rgba(255,250,238,.72) 0%, transparent 70%);
+}
+
+/* ─────────────────────────────────────────
+   LAYOUT
+───────────────────────────────────────── */
+.layout {
+  display:flex;
+  min-height:100vh;
+  position:relative;
+  z-index:1;
+}
+
+/* ─────────────────────────────────────────
+   SIDEBAR
+───────────────────────────────────────── */
+.sidebar {
+  width:232px;
+  flex-shrink:0;
+  background:var(--sb);
+  border-right:1px solid var(--sb-border);
+  display:flex;
+  flex-direction:column;
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:var(--b2) transparent;
+}
+
+.sb-brand {
+  padding:26px 20px 20px;
+  border-bottom:1px solid var(--sb-border);
+  flex-shrink:0;
+}
+.sb-name {
+  font-family:var(--fH);
+  font-size:17px;
+  font-weight:700;
+  color:var(--ink);
+  letter-spacing:0.01em;
+}
+.sb-sub {
+  font-family:var(--fM);
+  font-size:8.5px;
+  color:var(--ink3);
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  margin-top:3px;
+}
+
+.sb-section {
+  font-family:var(--fM);
+  font-size:8.5px;
+  font-weight:600;
+  color:var(--ink3);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  padding:18px 20px 8px;
+  flex-shrink:0;
+}
+
+.user-list {
+  flex:1;
+  padding:0 8px;
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+}
+
+/* ── user item ── */
+.u-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:9px 10px;
+  border-radius:9px;
+  cursor:pointer;
+  border:1px solid transparent;
+  transition:background var(--t);
+  position:relative;
+}
+.u-row:hover { background:rgba(255,255,255,.5); }
+.u-row.active {
+  background:#fff;
+  border-color:var(--b1);
+  box-shadow:var(--s1);
+}
+
+.u-av {
+  width:34px; height:34px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fH);
+  font-size:13px; font-weight:700;
+  color:#fff;
+  flex-shrink:0;
+  letter-spacing:0;
+}
+
+.u-info { flex:1; min-width:0; }
+.u-name {
+  font-family:var(--fB);
+  font-size:12.5px; font-weight:500;
+  color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.u-meta {
+  font-family:var(--fM);
+  font-size:9.5px; color:var(--ink3);
+  letter-spacing:.03em; margin-top:1px;
+}
+
+.u-del {
+  width:24px; height:24px;
+  border-radius:6px; border:none;
+  background:transparent; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--ink4);
+  opacity:0;
+  transition:all var(--t);
+  flex-shrink:0;
+}
+.u-row:hover .u-del { opacity:1; }
+.u-del:hover { background:rgba(191,44,24,.1); color:var(--crit); }
+
+/* ── delete confirm ── */
+.u-confirm {
+  display:none;
+  flex-direction:column;
+  gap:7px;
+  margin:0 8px 3px;
+  padding:11px 12px;
+  background:rgba(191,44,24,.06);
+  border:1px solid rgba(191,44,24,.18);
+  border-radius:9px;
+  animation:fadeIn 160ms ease;
+}
+.u-confirm.show { display:flex; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+
+.u-conf-msg {
+  font-size:11.5px; color:var(--crit);
+  font-family:var(--fB); line-height:1.45;
+}
+.u-conf-btns { display:flex; gap:6px; }
+.u-conf-yes {
+  flex:1; padding:6px 8px; border-radius:6px;
+  background:var(--crit); border:none;
+  color:#fff; font-size:11.5px; font-family:var(--fB);
+  cursor:pointer; font-weight:600; transition:background var(--t);
+}
+.u-conf-yes:hover { background:#a8220e; }
+.u-conf-no {
+  flex:1; padding:6px 8px; border-radius:6px;
+  background:transparent; border:1px solid var(--b2);
+  color:var(--ink2); font-size:11.5px; font-family:var(--fB); cursor:pointer;
+  transition:all var(--t);
+}
+.u-conf-no:hover { background:rgba(255,255,255,.6); color:var(--ink); }
+
+/* ── sidebar footer ── */
+.sb-foot {
+  padding:10px 8px 20px;
+  flex-shrink:0;
+  border-top:1px solid var(--sb-border);
+}
+
+.add-user-btn {
+  display:flex; align-items:center; gap:10px;
+  width:100%; padding:9px 12px;
+  border-radius:9px;
+  border:1.5px dashed var(--b2);
+  background:transparent; cursor:pointer;
+  font-family:var(--fB); font-size:12px; color:var(--ink2);
+  transition:all var(--t); text-align:left;
+}
+.add-user-btn:hover { border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
+
+.add-user-icon {
+  width:28px; height:28px; border-radius:50%;
+  background:rgba(138,95,40,.1);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; color:var(--gold); line-height:1; flex-shrink:0;
+  font-weight:300;
+}
+
+/* ─────────────────────────────────────────
+   MOBILE TOP STRIP
+───────────────────────────────────────── */
+.mob-strip {
+  display:none;
+  overflow-x:auto;
+  padding:12px 16px 10px;
+  gap:12px;
+  background:var(--sb);
+  border-bottom:1px solid var(--sb-border);
+  flex-shrink:0;
+  scrollbar-width:none;
+  align-items:flex-start;
+}
+.mob-strip::-webkit-scrollbar { display:none; }
+
+.ms-user {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  flex-shrink:0; cursor:pointer;
+}
+.ms-av {
+  width:40px; height:40px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fH); font-size:13px; font-weight:700; color:#fff;
+  border:2.5px solid transparent;
+  transition:border-color var(--t), box-shadow var(--t);
+}
+.ms-user.active .ms-av {
+  border-color:var(--ink);
+  box-shadow:0 0 0 2px var(--bg);
+}
+.ms-label {
+  font-size:9.5px; font-family:var(--fB); color:var(--ink2);
+  white-space:nowrap; max-width:48px;
+  overflow:hidden; text-overflow:ellipsis; text-align:center;
+}
+
+.ms-add {
+  flex-shrink:0; width:40px; height:40px; border-radius:50%;
+  border:1.5px dashed var(--b2); background:transparent; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:22px; color:var(--ink3); transition:all var(--t);
+  margin-top:0;
+}
+.ms-add:hover { border-color:var(--gold); color:var(--gold); }
+
+@media (max-width:768px) {
+  .sidebar { display:none; }
+  .mob-strip { display:flex; }
+  .layout { flex-direction:column; }
+}
+
+/* ─────────────────────────────────────────
+   MAIN AREA
+───────────────────────────────────────── */
+.main {
+  flex:1; min-width:0;
+  display:flex; flex-direction:column;
+}
+
+/* ── main header ── */
+.main-head {
+  display:flex; align-items:center;
+  justify-content:space-between;
+  padding:26px 30px 22px;
+  border-bottom:1px solid var(--b1);
+  gap:16px; flex-wrap:wrap;
+  background:rgba(245,240,232,.55);
+  backdrop-filter:blur(2px);
+  flex-shrink:0;
+}
+
+.user-display { display:flex; align-items:center; gap:12px; }
+
+.ud-av {
+  width:42px; height:42px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--fH); font-size:16px; font-weight:700; color:#fff;
+  flex-shrink:0;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+
+.ud-name {
+  font-family:var(--fH);
+  font-size:20px; font-weight:600; color:var(--ink);
+  letter-spacing:.005em; line-height:1.15;
+}
+.ud-sub {
+  font-family:var(--fM);
+  font-size:9px; color:var(--ink3);
+  letter-spacing:.14em; text-transform:uppercase;
+  margin-top:2px;
+}
+
+.head-actions { display:flex; align-items:center; gap:8px; }
+
+/* ─────────────────────────────────────────
+   BUTTONS
+───────────────────────────────────────── */
+.btn {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 15px; border-radius:7px;
+  font-family:var(--fB); font-size:12px; font-weight:500;
+  cursor:pointer; transition:all var(--t);
+  border:1px solid transparent;
+  letter-spacing:.02em; white-space:nowrap; line-height:1;
+}
+.btn-outline {
+  background:transparent;
+  border-color:var(--b2); color:var(--ink2);
+}
+.btn-outline:hover { border-color:var(--b3); color:var(--ink); background:rgba(138,100,52,.04); }
+
+.btn-ink {
+  background:var(--ink); color:#f6f1e8;
+  border-color:var(--ink); font-weight:600;
+}
+.btn-ink:hover { background:#2e261c; }
+
+.btn-del {
+  background:transparent;
+  border-color:rgba(191,44,24,.3); color:var(--crit);
+}
+.btn-del:hover { background:rgba(191,44,24,.07); }
+
+/* ─────────────────────────────────────────
+   CONTROLS BAR
+───────────────────────────────────────── */
+.ctrl-bar {
+  display:flex; align-items:center;
+  justify-content:space-between;
+  padding:15px 30px 16px;
+  gap:12px; flex-wrap:wrap;
+  flex-shrink:0;
+}
+.summary {
+  font-family:var(--fM); font-size:10px;
+  color:var(--ink3); letter-spacing:.06em;
+}
+.summary .n { color:var(--ink2); font-weight:600; }
+.ctrl-r { display:flex; align-items:center; gap:6px; }
+.chips { display:flex; gap:4px; }
+
+.chip {
+  padding:5px 12px; border-radius:20px;
+  font-size:11px; font-family:var(--fB); font-weight:500;
+  cursor:pointer; border:1px solid var(--b1); color:var(--ink3);
+  background:transparent; transition:all var(--t);
+}
+.chip:hover { border-color:var(--b2); color:var(--ink2); }
+.chip.on { background:var(--ink); border-color:var(--ink); color:#f6f1e8; }
+
+.sort-btn {
+  display:flex; align-items:center; gap:5px;
+  padding:5px 11px; border-radius:7px;
+  font-size:10px; font-family:var(--fM); font-weight:500;
+  cursor:pointer; border:1px solid var(--b2); color:var(--ink2);
+  background:transparent; transition:all var(--t); letter-spacing:.05em;
+}
+.sort-btn:hover { border-color:var(--b3); color:var(--ink); }
+
+/* ─────────────────────────────────────────
+   TILE GRID
+───────────────────────────────────────── */
+.grid-shell {
+  padding:0 30px 100px;
+  flex:1;
+}
+.grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+}
+@media (max-width:1200px) { .grid { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:640px)  {
+  .grid { grid-template-columns:1fr; }
+  .grid-shell { padding:0 16px 100px; }
+  .main-head,
+  .ctrl-bar { padding-left:16px; padding-right:16px; }
+}
+
+/* ─────────────────────────────────────────
+   TILE
+───────────────────────────────────────── */
+.tile {
+  position:relative;
+  background:var(--tile);
+  border:1px solid var(--b1);
+  border-left:3px solid var(--pc,#ccc);
+  border-radius:var(--r);
+  box-shadow:var(--s1);
+  transition:transform var(--t), box-shadow var(--t),
+             background var(--t), border-color var(--t), opacity var(--t);
+  user-select:none;
+  opacity:0; transform:translateY(14px);
+  animation:rev 360ms ease forwards;
+}
+.tile:hover {
+  background:var(--tile-h);
+  box-shadow:var(--s2);
+  transform:translateY(-2px);
+  border-color:rgba(155,130,96,.28);
+  border-left-color:var(--pc,#ccc);
+}
+.tile.dragging { opacity:.18; transform:scale(.97); }
+.tile.drop-over {
+  border-color:var(--gold) !important;
+  box-shadow:0 0 0 2px var(--gold-dim), var(--s2) !important;
+}
+
+.tile[data-s="active"]   { --sc:var(--ok); }
+.tile[data-s="expiring"] { --sc:var(--warn); }
+.tile[data-s="critical"] { --sc:var(--crit); }
+.tile[data-s="expired"]  { --sc:var(--dead); filter:saturate(.28) opacity(.6); }
+
+@keyframes rev { to { opacity:1; transform:translateY(0); } }
+
+@keyframes critGlow {
+  0%,100% { box-shadow:var(--s1); }
+  50%     { box-shadow:var(--s1), 0 0 0 3px rgba(191,44,24,.11); }
+}
+.tile[data-s="critical"] {
+  animation:rev 360ms ease forwards, critGlow 2.5s ease .5s infinite;
+}
+
+/* drag handle */
+.t-handle {
+  height:22px; cursor:grab;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transition:opacity var(--t);
+}
+.tile:hover .t-handle { opacity:1; }
+.t-handle:active { cursor:grabbing; }
+.t-dots { display:flex; gap:3px; }
+.t-dots span { width:3px; height:3px; border-radius:50%; background:var(--ink4); }
+
+/* tile head */
+.t-head {
+  display:flex; align-items:flex-start;
+  justify-content:space-between;
+  padding:0 15px 12px;
+}
+.t-prov { display:flex; align-items:flex-start; gap:11px; }
+.t-icon {
+  width:34px; height:34px; border-radius:9px;
+  background:var(--bg2); border:1px solid var(--b1);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; margin-top:1px;
+}
+.t-icon svg { width:18px; height:18px; }
+
+.t-name {
+  font-family:var(--fH);
+  font-size:13.5px; font-weight:600; color:var(--ink);
+  line-height:1.2; letter-spacing:.005em;
+}
+.t-tier {
+  font-family:var(--fM);
+  font-size:9.5px; color:var(--ink3);
+  letter-spacing:.09em; text-transform:uppercase;
+  margin-top:2px;
+}
+.t-email {
+  display:flex; align-items:center; gap:4px;
+  margin-top:4px;
+  font-family:var(--fM); font-size:10px; color:var(--ink2);
+  max-width:178px;
+}
+.t-email svg { flex-shrink:0; opacity:.5; }
+.t-email span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* kebab */
+.kw { position:relative; }
+.kbtn {
+  width:28px; height:28px; border-radius:6px;
+  background:transparent; border:1px solid transparent;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  color:var(--ink4); transition:all var(--t); opacity:0;
+}
+.tile:hover .kbtn { opacity:1; }
+.kbtn:hover { background:var(--bg2); border-color:var(--b2); color:var(--ink2); }
+
+.kmenu {
+  position:absolute; right:0; top:32px;
+  background:#fff; border:1px solid var(--b2);
+  border-radius:9px; padding:4px; z-index:200;
+  min-width:138px;
+  box-shadow:0 8px 32px rgba(72,52,20,.14);
+  display:none;
+}
+.kmenu.open { display:block; animation:fadeIn 140ms ease; }
+
+.ki {
+  display:flex; align-items:center; gap:8px;
+  padding:8px 10px; border-radius:6px;
+  font-size:12px; font-family:var(--fB); cursor:pointer;
+  color:var(--ink2); transition:all 130ms ease;
+  border:none; background:none; width:100%; text-align:left;
+}
+.ki:hover { background:var(--bg2); color:var(--ink); }
+.ki.del { color:var(--crit); }
+.ki.del:hover { background:rgba(191,44,24,.06); }
+
+/* countdown */
+.t-count {
+  display:flex; align-items:center; gap:15px;
+  padding:4px 15px 14px;
+}
+.ring-wrap {
+  position:relative; width:70px; height:70px; flex-shrink:0;
+}
+.ring-wrap svg { width:70px; height:70px; transform:rotate(-90deg); }
+.r-track { fill:none; stroke:rgba(0,0,0,.07); stroke-width:3.5; }
+.r-fill {
+  fill:none; stroke:var(--sc,var(--ok)); stroke-width:3.5;
+  stroke-linecap:round;
+  stroke-dasharray:188.5; stroke-dashoffset:188.5;
+  transition:stroke-dashoffset 920ms cubic-bezier(.4,0,.2,1);
+}
+.ring-mid {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+}
+.r-num {
+  font-family:var(--fM); font-size:15px; font-weight:600;
+  color:var(--ink); line-height:1; letter-spacing:-.02em;
+}
+.r-unit {
+  font-family:var(--fM); font-size:7px; color:var(--ink3);
+  letter-spacing:.07em; text-transform:uppercase; margin-top:2px;
+}
+.ct { flex:1; min-width:0; }
+.ct-lbl {
+  font-family:var(--fM); font-size:8.5px; font-weight:600;
+  color:var(--sc,var(--ok)); letter-spacing:.14em; text-transform:uppercase;
+  margin-bottom:5px;
+}
+.ct-date {
+  font-family:var(--fM); font-size:13px; font-weight:600;
+  color:var(--ink); letter-spacing:.01em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.ct-renew {
+  display:flex; align-items:center; gap:5px;
+  margin-top:5px; font-size:10px; font-family:var(--fB); color:var(--ink3);
+}
+.rdot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--sc,var(--ok)); opacity:.55; flex-shrink:0;
+}
+
+/* tile footer */
+.t-foot {
+  padding:9px 15px 13px;
+  border-top:1px solid var(--b1);
+  display:flex; align-items:center;
+  justify-content:space-between; gap:8px;
+}
+.tags { display:flex; flex-wrap:wrap; gap:4px; flex:1; min-width:0; }
+.tag {
+  padding:2px 8px; border-radius:10px;
+  background:var(--bg); border:1px solid var(--b1);
+  font-size:10px; font-family:var(--fB); color:var(--ink2); white-space:nowrap;
+}
+.tcost {
+  font-family:var(--fM); font-size:10.5px; color:var(--ink2);
+  white-space:nowrap; flex-shrink:0;
+}
+
+/* ── hourly renewal band ── */
+.t-hourly {
+  padding:9px 15px 12px;
+  border-top:1px solid var(--b1);
+  background:rgba(138,95,40,.025);
+}
+.hr-row {
+  display:flex; align-items:center;
+  justify-content:space-between;
+  margin-bottom:7px; gap:8px;
+}
+.hr-left {
+  display:flex; align-items:center; gap:5px;
+  font-family:var(--fM); font-size:10px; color:var(--ink2);
+  min-width:0;
+}
+.hr-left svg { flex-shrink:0; opacity:.55; }
+.hr-label-txt { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hr-cost {
+  font-family:var(--fM); font-size:9.5px; color:var(--ink3);
+  white-space:nowrap;
+}
+.hr-timer {
+  font-family:var(--fM); font-size:10.5px; font-weight:600;
+  color:var(--gold); letter-spacing:.04em; white-space:nowrap;
+  flex-shrink:0;
+}
+.hr-track {
+  height:3px; background:var(--b1); border-radius:2px; overflow:hidden;
+}
+.hr-fill {
+  height:100%; background:var(--gold); border-radius:2px;
+  transition:width .95s linear;
+}
+
+/* ── hourly badge on tile header ── */
+.hr-badge {
+  display:inline-flex; align-items:center; gap:3px;
+  padding:1px 6px; border-radius:8px;
+  background:rgba(138,95,40,.1); border:1px solid rgba(138,95,40,.22);
+  font-family:var(--fM); font-size:8.5px; color:var(--gold);
+  letter-spacing:.06em; margin-top:3px;
+}
+
+/* ─────────────────────────────────────────
+   EMPTY / NO-USER STATES
+───────────────────────────────────────── */
+.empty {
+  grid-column:1/-1;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:96px 24px; gap:14px; text-align:center;
+}
+.empty-box {
+  width:58px; height:58px;
+  border:1px solid var(--b2); border-radius:14px;
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:4px; background:#fff; box-shadow:var(--s1);
+}
+.empty-prompt { font-family:var(--fM); font-size:11px; color:var(--ink3); letter-spacing:.05em; }
+.blink {
+  display:inline-block; width:7px; height:13px;
+  background:var(--gold); opacity:.7;
+  animation:blink 1.1s step-start infinite;
+  vertical-align:text-bottom; margin-left:1px;
+}
+@keyframes blink { 0%,100%{opacity:.7} 50%{opacity:0} }
+.empty-title { font-family:var(--fH); font-size:20px; font-weight:600; color:var(--ink); }
+.empty-sub { font-size:12.5px; color:var(--ink2); max-width:300px; line-height:1.7; }
+
+.no-user-screen {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:16px; text-align:center; padding:60px 32px;
+}
+.nu-ring {
+  width:74px; height:74px; border-radius:50%;
+  background:var(--bg2); border:1px solid var(--b2);
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom:4px;
+}
+.nu-title { font-family:var(--fH); font-size:22px; font-weight:600; color:var(--ink); }
+.nu-sub { font-size:13px; color:var(--ink2); max-width:320px; line-height:1.7; }
+
+/* ─────────────────────────────────────────
+   DRAG GHOST
+───────────────────────────────────────── */
+#ghost {
+  position:fixed; pointer-events:none;
+  z-index:9999; display:none;
+  transform:rotate(1.8deg) scale(1.04);
+  box-shadow:var(--s3); border-radius:var(--r);
+  opacity:.87; will-change:transform; overflow:hidden;
+}
+
+/* ─────────────────────────────────────────
+   MODALS (shared overlay)
+───────────────────────────────────────── */
+.overlay {
+  position:fixed; inset:0; z-index:600;
+  background:rgba(55,42,22,.38);
+  backdrop-filter:blur(7px) saturate(.82);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+  opacity:0; pointer-events:none;
+  transition:opacity 200ms ease;
+}
+.overlay.open { opacity:1; pointer-events:all; }
+
+.panel {
+  background:var(--modal);
+  border:1px solid var(--b2); border-radius:16px;
+  width:100%; max-width:520px; max-height:92vh;
+  overflow-y:auto;
+  transform:translateY(22px); transition:transform 220ms ease;
+  box-shadow:var(--sm);
+  scrollbar-width:thin; scrollbar-color:var(--b2) transparent;
+}
+.overlay.open .panel { transform:translateY(0); }
+.panel-sm { max-width:390px; }
+
+.mo-head {
+  padding:22px 24px 16px; border-bottom:1px solid var(--b1);
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; background:var(--modal); z-index:10;
+}
+.mo-title { font-family:var(--fH); font-size:17px; font-weight:600; color:var(--ink); }
+.mo-x {
+  width:30px; height:30px; border-radius:7px;
+  border:1px solid var(--b2); background:transparent;
+  color:var(--ink2); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 160ms ease; font-size:18px; line-height:1;
+}
+.mo-x:hover { background:var(--bg2); color:var(--ink); }
+.mo-body { padding:18px 24px; display:flex; flex-direction:column; gap:15px; }
+.mo-foot {
+  padding:14px 24px 20px; border-top:1px solid var(--b1);
+  display:flex; gap:8px; justify-content:flex-end;
+}
+
+/* ─────────────────────────────────────────
+   FORM ELEMENTS
+───────────────────────────────────────── */
+.fg { display:flex; flex-direction:column; gap:6px; }
+.fg2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.fl {
+  font-family:var(--fM); font-size:9px; color:var(--ink2);
+  letter-spacing:.13em; text-transform:uppercase;
+}
+
+.fi, .fsel, .fta {
+  background:var(--bg2); border:1px solid var(--b2); border-radius:7px;
+  padding:9px 12px; font-family:var(--fB); font-size:13px; color:var(--ink);
+  outline:none; transition:border-color 160ms ease, background 160ms ease; width:100%;
+}
+.fi:focus, .fsel:focus, .fta:focus { border-color:var(--b3); background:#fff; }
+.fi::placeholder, .fta::placeholder { color:var(--ink4); }
+
+.fsel {
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath fill='%23aba090' d='M5.5 7L0 0h11z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center;
+  padding-right:30px; cursor:pointer;
+}
+.fsel option { background:#fff; color:var(--ink); }
+
+.fta { resize:none; height:62px; font-size:12.5px; transition:height 200ms ease, border-color 160ms ease, background 160ms ease; }
+.fta:focus { height:86px; }
+
+/* tag input */
+.tw {
+  display:flex; flex-wrap:wrap; gap:5px; padding:6px 10px;
+  background:var(--bg2); border:1px solid var(--b2);
+  border-radius:7px; cursor:text; min-height:40px; align-items:center;
+  transition:border-color 160ms ease;
+}
+.tw:focus-within { border-color:var(--b3); background:#fff; }
+.tchip {
+  display:flex; align-items:center; gap:4px; padding:2px 8px;
+  background:rgba(138,95,40,.09); border:1px solid rgba(138,95,40,.2);
+  border-radius:10px; font-size:11px; color:var(--gold);
+}
+.tchip button {
+  background:none; border:none; color:rgba(138,95,40,.45);
+  cursor:pointer; font-size:14px; line-height:1; padding:0;
+  transition:color 120ms ease;
+}
+.tchip button:hover { color:var(--gold); }
+.tin {
+  background:none; border:none; outline:none;
+  font-family:var(--fB); font-size:12px; color:var(--ink);
+  min-width:80px; flex:1;
+}
+.tin::placeholder { color:var(--ink4); font-size:11px; }
+
+/* toggle */
+.trow { display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
+.tlbl { font-size:12.5px; color:var(--ink2); font-family:var(--fB); }
+.tog { position:relative; width:38px; height:21px; }
+.tog input { opacity:0; width:0; height:0; }
+.tog-tr {
+  position:absolute; inset:0; background:var(--ink4);
+  border-radius:20px; transition:background 160ms ease; cursor:pointer;
+  border:1px solid var(--b2);
+}
+.tog-tr::after {
+  content:''; position:absolute; width:15px; height:15px; border-radius:50%;
+  background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.14);
+  top:2px; left:2px; transition:transform 160ms ease;
+}
+.tog input:checked + .tog-tr { background:var(--ink); border-color:var(--ink); }
+.tog input:checked + .tog-tr::after { transform:translateX(17px); }
+
+/* color swatches */
+.color-row { display:flex; flex-wrap:wrap; gap:8px; padding:2px 0; }
+.csw {
+  width:30px; height:30px; border-radius:50%; cursor:pointer;
+  border:2.5px solid transparent;
+  transition:transform var(--t), box-shadow var(--t), border-color var(--t);
+  display:flex; align-items:center; justify-content:center;
+}
+.csw:hover { transform:scale(1.1); }
+.csw.picked {
+  border-color:var(--ink);
+  box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--ink);
+}
+
+/* ── hourly section in modal ── */
+.mo-section-sep {
+  height:1px; background:var(--b1);
+  margin:4px 0;
+}
+.mo-section-lbl {
+  font-family:var(--fM); font-size:8.5px; font-weight:600;
+  color:var(--gold); letter-spacing:.18em; text-transform:uppercase;
+  display:flex; align-items:center; gap:8px;
+}
+.mo-section-lbl::after {
+  content:''; flex:1; height:1px; background:var(--b1);
+}
+.hourly-fields {
+  display:flex; flex-direction:column; gap:12px;
+  padding:12px 14px;
+  background:rgba(138,95,40,.04);
+  border:1px solid rgba(138,95,40,.14);
+  border-radius:8px;
+  margin-top:2px;
+}
+.hourly-fields.hidden { display:none; }
+
+/* ─────────────────────────────────────────
+   TOASTS
+───────────────────────────────────────── */
+.toasts {
+  position:fixed; top:22px; right:22px;
+  z-index:9000; display:flex; flex-direction:column;
+  gap:7px; pointer-events:none;
+}
+.toast {
+  padding:9px 15px; background:#fff; border:1px solid var(--b2);
+  border-radius:9px; font-family:var(--fB); font-size:12px; color:var(--ink);
+  display:flex; align-items:center; gap:8px;
+  box-shadow:0 6px 28px rgba(72,52,18,.13);
+  animation:tin 260ms ease forwards;
+}
+@keyframes tin  { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
+@keyframes tout { to  {opacity:0;transform:translateX(16px)} }
+.toast.out { animation:tout 180ms ease forwards; }
+
+/* ─────────────────────────────────────────
+   FAB (mobile)
+───────────────────────────────────────── */
+.fab {
+  display:none;
+  position:fixed; bottom:26px; right:22px;
+  width:54px; height:54px; border-radius:50%;
+  background:var(--ink); border:none; cursor:pointer;
+  align-items:center; justify-content:center; z-index:300;
+  box-shadow:0 8px 32px rgba(16,12,4,.25);
+  color:#f6f1e8; font-size:26px; font-weight:300;
+  transition:transform 160ms ease; line-height:1;
+}
+.fab:hover { transform:scale(1.06); }
+@media (max-width:640px) { .fab{display:flex;} .add-tile-btn{display:none;} }
+
+/* scrollbar */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--b2); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════ SHELL ══════════════ -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <div class="sb-name">Signal Room</div>
+      <div class="sb-sub">LLM Account Intelligence</div>
+    </div>
+    <div class="sb-section">People</div>
+    <div class="user-list" id="userList"></div>
+    <div class="sb-foot">
+      <button class="add-user-btn" id="addUserBtn">
+        <div class="add-user-icon">+</div>
+        Add person
+      </button>
+    </div>
+  </aside>
+
+  <!-- MOBILE STRIP -->
+  <div class="mob-strip" id="mobStrip"></div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainArea"></div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fab">+</button>
+
+<!-- GHOST -->
+<div id="ghost"></div>
+
+<!-- TOASTS -->
+<div class="toasts" id="toasts"></div>
+
+<!-- ══════════════ TILE MODAL ══════════════ -->
+<div class="overlay" id="tileOv">
+  <div class="panel">
+    <div class="mo-head">
+      <div class="mo-title" id="tmTitle">Add LLM Account</div>
+      <button class="mo-x" id="tmX">×</button>
+    </div>
+    <div class="mo-body">
+      <div class="fg"><label class="fl">Provider</label><select class="fsel" id="fProv"></select></div>
+      <div class="fg"><label class="fl">Display Name</label><input type="text" class="fi" id="fName" placeholder="e.g. Claude Pro · Personal"></div>
+      <div class="fg"><label class="fl">Account Email</label><input type="email" class="fi" id="fEmail" placeholder="you@example.com"></div>
+      <div class="fg2">
+        <div class="fg"><label class="fl">Tier / Plan</label><input type="text" class="fi" id="fTier" placeholder="Pro, Free, Team…"></div>
+        <div class="fg"><label class="fl">Cost</label><input type="text" class="fi" id="fCost" placeholder="$20/mo"></div>
+      </div>
+      <div class="fg"><label class="fl">Expires On</label><input type="date" class="fi" id="fExp" style="color-scheme:light"></div>
+      <div class="fg">
+        <label class="fl">Use Cases <span style="opacity:.45;font-size:8px;letter-spacing:.06em">· Enter to add</span></label>
+        <div class="tw" id="tagWrap"><input type="text" class="tin" id="tagIn" placeholder="coding, writing, search…"></div>
+      </div>
+      <div class="fg"><label class="fl">Notes</label><textarea class="fta" id="fNotes" placeholder="Any notes about this account…"></textarea></div>
+      <div class="trow">
+        <span class="tlbl">Auto-renews</span>
+        <label class="tog"><input type="checkbox" id="fRenew" checked><div class="tog-tr"></div></label>
+      </div>
+
+      <!-- ── HOURLY RENEWAL SECTION ── -->
+      <div class="mo-section-lbl">Hourly Renewal</div>
+      <div class="trow">
+        <span class="tlbl">Has hourly renewal</span>
+        <label class="tog"><input type="checkbox" id="fHourlyEnabled"><div class="tog-tr"></div></label>
+      </div>
+      <div class="hourly-fields hidden" id="hourlyFields">
+        <div class="fg">
+          <label class="fl">Renewal Label</label>
+          <input type="text" class="fi" id="fHourlyLabel" placeholder="e.g. API quota, Rate limit window…">
+        </div>
+        <div class="fg2">
+          <div class="fg">
+            <label class="fl">Interval (minutes)</label>
+            <input type="number" class="fi" id="fHourlyInterval" placeholder="60" min="1" max="1440">
+          </div>
+          <div class="fg">
+            <label class="fl">Cost per cycle</label>
+            <input type="text" class="fi" id="fHourlyCost" placeholder="$0.01 / cycle">
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">Cycle anchor <span style="opacity:.45;font-size:8px;letter-spacing:.06em">· when did the last cycle start?</span></label>
+          <input type="datetime-local" class="fi" id="fHourlyAnchor" style="color-scheme:light">
+        </div>
+      </div>
+    </div>
+    <div class="mo-foot">
+      <button class="btn btn-outline" id="tmCancel">Cancel</button>
+      <button class="btn btn-del" id="tmDel" style="display:none">Delete</button>
+      <button class="btn btn-ink" id="tmSave">Save Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ USER MODAL ══════════════ -->
+<div class="overlay" id="userOv">
+  <div class="panel panel-sm">
+    <div class="mo-head">
+      <div class="mo-title" id="umTitle">Add Person</div>
+      <button class="mo-x" id="umX">×</button>
+    </div>
+    <div class="mo-body">
+      <div class="fg"><label class="fl">Name</label><input type="text" class="fi" id="uName" placeholder="e.g. Shakti, Ayush Rajput, Hethvi Kothari…" maxlength="32"></div>
+      <div class="fg"><label class="fl">Avatar Colour</label><div class="color-row" id="colorRow"></div></div>
+    </div>
+    <div class="mo-foot">
+      <button class="btn btn-outline" id="umCancel">Cancel</button>
+      <button class="btn btn-ink"     id="umSave">Create Person</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SCRIPT ══════════════ -->
+<script>
+/* ─────────────────────────────────────────
+   PROVIDER REGISTRY
+───────────────────────────────────────── */
+const PROV = {
+  anthropic:   {n:'Anthropic / Claude',   c:'#c05740', svg:`<svg viewBox="0 0 24 24" fill="none"><path d="M13.9 4.5 20.5 20H16.7L15.3 16.2H8.7L7.3 20H3.5L10.1 4.5ZM12 9.1 10 14.4h4Z" fill="currentColor"/></svg>`},
+  openai:      {n:'OpenAI / ChatGPT',     c:'#2a7a5e', svg:`<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 7.5C14.5 9 15 12 12 16.5M12 7.5C9.5 9 9 12 12 16.5M7.5 10.5h9M7.5 13.5h9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/></svg>`},
+  google:      {n:'Google / Gemini',      c:'#1a5fa0', svg:`<svg viewBox="0 0 24 24" fill="none"><path d="M21.5 10.5h-9.5v3.5h5.4C16.9 16.4 14.6 18 12 18c-3.3 0-6-2.7-6-6s2.7-6 6-6c1.5 0 2.9.5 3.9 1.4l2.6-2.6C16.8 3.7 14.5 3 12 3 6.5 3 2 7.5 2 13S6.5 23 12 23c5.5 0 9.5-3.8 9.5-9.5 0-.7-.1-1.4-.3-2z" fill="currentColor" opacity=".85"/></svg>`},
+  meta:        {n:'Meta / Llama',         c:'#5a4ab0', svg:`<svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="12" rx="8.5" ry="7" stroke="currentColor" stroke-width="1.8" fill="none"/><ellipse cx="12" cy="12" rx="3" ry="5" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>`},
+  mistral:     {n:'Mistral',              c:'#c05000', svg:`<svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5h16M4 11.5h12M4 16.5h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`},
+  perplexity:  {n:'Perplexity',           c:'#157a7a', svg:`<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8" fill="none"/><circle cx="12" cy="12" r="2.8" fill="currentColor"/><line x1="12" y1="3.5" x2="12" y2="8.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="12" y1="15.2" x2="12" y2="20.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`},
+  xai:         {n:'xAI / Grok',           c:'#555',    svg:`<svg viewBox="0 0 24 24" fill="none"><path d="M5 19 19 5M5 5l14 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`},
+  cohere:      {n:'Cohere',               c:'#8a6000', svg:`<svg viewBox="0 0 24 24" fill="none"><path d="M12 4a8 8 0 1 0 0 16A8 8 0 0 0 12 4zm0 0v16M8 8a4 4 0 0 1 8 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>`},
+  deepseek:    {n:'DeepSeek',             c:'#1a4a8a', svg:`<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 7.5V12l4 2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>`},
+  huggingface: {n:'Hugging Face',         c:'#b07800', svg:`<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="11" r="7.5" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="9.5" cy="9.5" r="1.1" fill="currentColor"/><circle cx="14.5" cy="9.5" r="1.1" fill="currentColor"/><path d="M9 13.5s1 1.8 3 1.8 3-1.8 3-1.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/><path d="M6.5 19.5l1.3-2.2M17.5 19.5l-1.3-2.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`},
+  microsoft:   {n:'Microsoft Copilot',    c:'#0060c0', svg:`<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor" opacity=".9"/><rect x="13" y="3" width="8" height="8" rx="1.5" fill="currentColor" opacity=".65"/><rect x="3" y="13" width="8" height="8" rx="1.5" fill="currentColor" opacity=".65"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor" opacity=".4"/></svg>`},
+  groq:        {n:'Groq',                 c:'#b84000', svg:`<svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="12" r="5.5" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M16.5 12H21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`},
+  poe:         {n:'Poe (Quora)',          c:'#6b35b8', svg:`<svg viewBox="0 0 24 24" fill="none"><path d="M12 4c-4.4 0-8 2.7-8 5.8 0 2.1 1.4 3.9 3.5 5L6 20l4.5-2.4c.5.1 1 .1 1.5.1 4.4 0 8-2.6 8-5.8S16.4 4 12 4z" stroke="currentColor" stroke-width="1.6" fill="none"/></svg>`},
+  custom:      {n:'Custom / Other',       c:'#888',    svg:`<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M12 8v8M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`},
+};
+
+const U_COLORS = [
+  '#c05740','#2a7a5e','#1a5fa0','#5a4ab0','#b05000',
+  '#157a7a','#8a6000','#1a4a8a','#b07800','#6b35b8',
+  '#555555','#7a2828','#2a5a2a','#005566','#774411',
+];
+
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+let users        = [];
+let activeUID    = null;
+let byUser       = {};
+let confirmDel   = null;
+
+let editTileId   = null;
+let tileTags     = [];
+let tFilter      = 'all';
+let tSort        = 'custom';
+
+let pickedColor  = U_COLORS[0];
+
+// hourly tick intervals
+let hourlyTimers = {}; // { tileId: intervalId }
+
+const SORTS = ['custom','expiry-asc','expiry-desc','provider','cost-asc'];
+const SLBL  = {custom:'Custom','expiry-asc':'Expiry ↑','expiry-desc':'Expiry ↓',provider:'Provider A–Z','cost-asc':'Cost ↑'};
+const API_BASE = '';
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API_BASE + path, opts);
+  if (res.status === 204) return null;
+  if (!res.ok) { const txt = await res.text(); throw new Error(txt || ('HTTP ' + res.status)); }
+  return res.json();
+}
+
+async function fetchUsers() {
+  const data = await api('/api/users');
+  users = data.users; byUser = data.byUser; activeUID = data.activeUserId;
+}
+
+async function createUserRemote(user) {
+  return api('/api/users', 'POST', user);
+}
+
+async function updateUserRemote(user) {
+  return api('/api/users/' + user.id, 'PUT', user);
+}
+
+async function deleteUserRemote(id) {
+  return api('/api/users/' + id, 'DELETE');
+}
+
+async function createTileRemote(tile) {
+  return api('/api/tiles', 'POST', tile);
+}
+
+async function updateTileRemote(tile) {
+  return api('/api/tiles/' + tile.id, 'PUT', tile);
+}
+
+async function deleteTileRemote(id) {
+  return api('/api/tiles/' + id, 'DELETE');
+}
+
+async function reorderTilesRemote(updates) {
+  return api('/api/tiles/reorder', 'PUT', { updates });
+}
+
+async function persist() {
+  // no-op in API mode; server persists immediately on each request
+}
+
+async function boot(){
+  try {
+    await fetchUsers();
+    if(activeUID && !users.find(u=>u.id===activeUID)) activeUID=users[0]?.id||null;
+    if(!activeUID && users.length) activeUID=users[0].id;
+    if(users.length) return;
+  } catch(e){}
+  seedData();
+}
+
+function seedData(){
+  const d=n=>{ const x=new Date(); x.setDate(x.getDate()+n); return x.toISOString().split('T')[0]; };
+  // anchor: now minus some offset (in ms) to simulate mid-cycle
+  const anchor=(minsAgo)=>{ const x=new Date(Date.now()-minsAgo*60000); return x.toISOString().slice(0,16); };
+  users=[
+    {id:'u1',name:'Shakti',    color:'#c05740'},
+    {id:'u2',name:'Ayush Rajput', color:'#1a5fa0'},
+    {id:'u3',name:'Hethvi Kothari',color:'#2a7a5e'},
+  ];
+  activeUID='u1';
+  byUser={
+    u1:[
+      {id:uid(),provider:'anthropic', name:'Claude Pro',       email:'shakti@studio.io',   tier:'Pro',      cost:'$20/mo',   expiresAt:d(47),  renewsAuto:true,  preferences:['coding','writing','research'], notes:'Primary creative account.', order:0,
+        hourly:{enabled:true, label:'Message rate limit', intervalMins:60, costPerCycle:'', anchor:anchor(22)}},
+      {id:uid(),provider:'openai',    name:'ChatGPT Plus',     email:'shakti@studio.io',   tier:'Plus',     cost:'$20/mo',   expiresAt:d(6),   renewsAuto:false, preferences:['vision','analysis'],           notes:'',                          order:1,
+        hourly:{enabled:true, label:'GPT-4 quota window', intervalMins:180, costPerCycle:'', anchor:anchor(55)}},
+      {id:uid(),provider:'perplexity',name:'Perplexity Pro',   email:'shakti@studio.io',   tier:'Pro',      cost:'$20/mo',   expiresAt:d(-10), renewsAuto:false, preferences:['search','news'],               notes:'Expired.',                  order:2,
+        hourly:{enabled:false}},
+    ],
+    u2:[
+      {id:uid(),provider:'openai',    name:'ChatGPT Team',     email:'ayush@company.com', tier:'Team',     cost:'$25/mo',   expiresAt:d(22),  renewsAuto:true,  preferences:['analysis','docs'],             notes:'Team workspace.',            order:0,
+        hourly:{enabled:false}},
+      {id:uid(),provider:'microsoft', name:'Copilot Business', email:'ayush@company.com', tier:'Business', cost:'$30/mo',   expiresAt:d(58),  renewsAuto:true,  preferences:['office','docs'],               notes:'',                          order:1,
+        hourly:{enabled:false}},
+      {id:uid(),provider:'google',    name:'Gemini Advanced',  email:'work@company.com',  tier:'Advanced', cost:'$19.99/mo',expiresAt:d(14),  renewsAuto:true,  preferences:['multimodal','code'],           notes:'',                          order:2,
+        hourly:{enabled:true, label:'Gemini Pro calls', intervalMins:60, costPerCycle:'$0.002', anchor:anchor(41)}},
+    ],
+    u3:[
+      {id:uid(),provider:'groq',      name:'Groq API',         email:'hethvi@gmail.com',   tier:'Paid',     cost:'$0.06/1K', expiresAt:d(90),  renewsAuto:true,  preferences:['speed','inference'],           notes:'Prepaid credits.',           order:0,
+        hourly:{enabled:true, label:'Burst limit window', intervalMins:30, costPerCycle:'', anchor:anchor(8)}},
+      {id:uid(),provider:'mistral',   name:'Mistral API',      email:'hethvi@gmail.com',   tier:'Pay-as-go',cost:'€8/mo',    expiresAt:d(120), renewsAuto:true,  preferences:['EU-hosted'],                   notes:'',                          order:1,
+        hourly:{enabled:false}},
+    ],
+  };
+}
+
+/* ─────────────────────────────────────────
+   STATUS HELPERS
+───────────────────────────────────────── */
+function status(exp){
+  if(!exp) return 'active';
+  const now=new Date(); now.setHours(0,0,0,0);
+  const d=Math.round((new Date(exp+'T00:00:00')-now)/86400000);
+  if(d<0)   return 'expired';
+  if(d<=7)  return 'critical';
+  if(d<=30) return 'expiring';
+  return 'active';
+}
+function dLeft(exp){
+  if(!exp) return null;
+  const now=new Date(); now.setHours(0,0,0,0);
+  return Math.round((new Date(exp+'T00:00:00')-now)/86400000);
+}
+function rPct(exp){ const d=dLeft(exp); if(d===null)return 1; if(d<=0)return 0; return Math.min(1,d/365); }
+function fDate(iso){ if(!iso)return '—'; return new Date(iso+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+function initials(n){ return n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+
+/* ─────────────────────────────────────────
+   HOURLY HELPERS
+───────────────────────────────────────── */
+/**
+ * Given a cycle anchor (ISO datetime string) and interval (minutes),
+ * returns { secsLeft, pct [0–1], cycleNum }
+ */
+function hourlyCycleInfo(anchor, intervalMins){
+  if(!anchor || !intervalMins || intervalMins<=0) return null;
+  const intervalMs = intervalMins * 60 * 1000;
+  const anchorMs   = new Date(anchor).getTime();
+  const nowMs      = Date.now();
+  const elapsed    = (nowMs - anchorMs) % intervalMs;
+  const secsLeft   = Math.round((intervalMs - elapsed) / 1000);
+  const pct        = 1 - elapsed / intervalMs;   // 1 = just reset, 0 = about to reset
+  const cycleNum   = Math.floor((nowMs - anchorMs) / intervalMs) + 1;
+  return { secsLeft, pct, cycleNum };
+}
+
+function fmtSecs(s){
+  if(s<=0) return '0s';
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  if(h>0) return `${h}h ${m}m`;
+  if(m>0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+/* ─────────────────────────────────────────
+   TILE LIST ACCESSORS
+───────────────────────────────────────── */
+function tiles(){ return byUser[activeUID]||[]; }
+function setTiles(arr){ byUser[activeUID]=arr; }
+
+function sortedTiles(){
+  const l=[...tiles()];
+  if(tSort==='expiry-asc')  return l.sort((a,b)=>(a.expiresAt||'9999')<(b.expiresAt||'9999')?-1:1);
+  if(tSort==='expiry-desc') return l.sort((a,b)=>(a.expiresAt||'')>(b.expiresAt||'')?-1:1);
+  if(tSort==='provider')    return l.sort((a,b)=>a.provider.localeCompare(b.provider));
+  if(tSort==='cost-asc'){   const n=c=>parseFloat((c||'0').replace(/[^0-9.]/g,''))||0; return l.sort((a,b)=>n(a.cost)-n(b.cost)); }
+  return l.sort((a,b)=>(a.order||0)-(b.order||0));
+}
+function filteredTiles(l){
+  if(tFilter==='all') return l;
+  return l.filter(t=>{ const s=status(t.expiresAt); if(tFilter==='active')return s==='active'; if(tFilter==='expiring')return s==='expiring'||s==='critical'; if(tFilter==='expired')return s==='expired'; return true; });
+}
+
+/* ─────────────────────────────────────────
+   RENDER SIDEBAR
+───────────────────────────────────────── */
+function renderSidebar(){
+  const list=document.getElementById('userList');
+  const mob=document.getElementById('mobStrip');
+  list.innerHTML=''; mob.innerHTML='';
+
+  users.forEach(u=>{
+    const tt=byUser[u.id]||[];
+    const exp=tt.filter(t=>{ const s=status(t.expiresAt); return s==='expiring'||s==='critical'; }).length;
+    const active=u.id===activeUID;
+
+    const row=document.createElement('div');
+    row.className='u-row'+(active?' active':'');
+    row.dataset.uid=u.id;
+    row.innerHTML=`
+      <div class="u-av" style="background:${u.color}">${initials(u.name)}</div>
+      <div class="u-info">
+        <div class="u-name">${u.name}</div>
+        <div class="u-meta">${tt.length} account${tt.length!==1?'s':''}${exp>0?` · <span style="color:var(--warn)">${exp} expiring</span>`:''}</div>
+      </div>
+      <button class="u-del" data-del="${u.id}" title="Remove person">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+          <path d="M2 3.5h9M4.5 3.5V2.5h4v1M5.5 5.5v3.5M7.5 5.5v3.5M3 3.5l.6 7h5.8l.6-7"
+            stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    `;
+    row.addEventListener('click', e=>{ if(e.target.closest('[data-del]')) return; switchUser(u.id); });
+
+    const conf=document.createElement('div');
+    conf.className='u-confirm'+(confirmDel===u.id?' show':'');
+    conf.id='conf-'+u.id;
+    conf.innerHTML=`
+      <div class="u-conf-msg">Delete <strong>${u.name}</strong> and all ${tt.length} account${tt.length!==1?'s':''}?</div>
+      <div class="u-conf-btns">
+        <button class="u-conf-yes" onclick="doDelUser('${u.id}')">Delete</button>
+        <button class="u-conf-no"  onclick="cancelDelUser()">Cancel</button>
+      </div>`;
+
+    list.appendChild(row);
+    list.appendChild(conf);
+
+    const ms=document.createElement('div');
+    ms.className='ms-user'+(active?' active':'');
+    ms.innerHTML=`<div class="ms-av" style="background:${u.color}">${initials(u.name)}</div><div class="ms-label">${u.name}</div>`;
+    ms.addEventListener('click',()=>switchUser(u.id));
+    mob.appendChild(ms);
+  });
+
+  const btn=document.createElement('button');
+  btn.className='ms-add'; btn.textContent='+';
+  btn.addEventListener('click',openUserModal);
+  mob.appendChild(btn);
+
+  list.querySelectorAll('[data-del]').forEach(b=>{
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      const id=b.dataset.del;
+      confirmDel=(confirmDel===id)?null:id;
+      renderSidebar();
+    });
+  });
+}
+
+function switchUser(id){
+  if(id===activeUID) return;
+  stopAllHourlyTimers();
+  activeUID=id; confirmDel=null;
+  tFilter='all'; tSort='custom';
+  renderSidebar(); renderMain();
+}
+
+function doDelUser(id){
+  const i=users.findIndex(u=>u.id===id); if(i===-1)return;
+  const name=users[i].name;
+  users.splice(i,1); delete byUser[id];
+  if(activeUID===id) activeUID=users[0]?.id||null;
+  confirmDel=null;
+  deleteUserRemote(id).catch(()=>{}).finally(()=>{ renderSidebar(); renderMain(); toast(`${name} removed`,'🗑'); });
+}
+
+function cancelDelUser(){ confirmDel=null; renderSidebar(); }
+
+/* ─────────────────────────────────────────
+   HOURLY TIMER MANAGEMENT
+───────────────────────────────────────── */
+function stopAllHourlyTimers(){
+  Object.values(hourlyTimers).forEach(id=>clearInterval(id));
+  hourlyTimers={};
+}
+
+function startHourlyTimer(tileId, intervalMins, anchor){
+  if(hourlyTimers[tileId]) clearInterval(hourlyTimers[tileId]);
+  // tick every second
+  hourlyTimers[tileId] = setInterval(()=>{
+    tickHourlyTile(tileId, intervalMins, anchor);
+  }, 1000);
+}
+
+function tickHourlyTile(tileId, intervalMins, anchor){
+  const info = hourlyCycleInfo(anchor, intervalMins);
+  if(!info) return;
+
+  const timerEl = document.getElementById('hrt-'+tileId);
+  const fillEl  = document.getElementById('hrf-'+tileId);
+  if(!timerEl || !fillEl) {
+    // tile no longer in DOM, clear
+    clearInterval(hourlyTimers[tileId]);
+    delete hourlyTimers[tileId];
+    return;
+  }
+
+  timerEl.textContent = fmtSecs(info.secsLeft);
+  fillEl.style.width  = (info.pct * 100).toFixed(2)+'%';
+}
+
+/* ─────────────────────────────────────────
+   RENDER MAIN
+───────────────────────────────────────── */
+function renderMain(){
+  stopAllHourlyTimers();
+  const area=document.getElementById('mainArea');
+
+  if(!users.length){
+    area.innerHTML=`
+      <div class="no-user-screen">
+        <div class="nu-ring">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="13" r="6" stroke="var(--ink3)" stroke-width="1.6" fill="none"/>
+            <path d="M5 28c0-6.1 4.9-11 11-11s11 4.9 11 11" stroke="var(--ink3)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+          </svg>
+        </div>
+        <div class="nu-title">No people yet</div>
+        <div class="nu-sub">Create a person profile to start tracking their LLM subscriptions, emails, and expiry dates.</div>
+        <button class="btn btn-ink" onclick="openUserModal()" style="margin-top:6px">+ Add first person</button>
+      </div>`;
+    return;
+  }
+
+  if(!activeUID) { activeUID=users[0].id; }
+
+  const user=users.find(u=>u.id===activeUID);
+  const tt=tiles();
+  const show=filteredTiles(sortedTiles());
+  const expCnt=tt.filter(t=>{ const s=status(t.expiresAt); return s==='expiring'||s==='critical'; }).length;
+
+  area.innerHTML=`
+    <div class="main-head">
+      <div class="user-display">
+        <div class="ud-av" style="background:${user.color}">${initials(user.name)}</div>
+        <div>
+          <div class="ud-name">${user.name}</div>
+          <div class="ud-sub">LLM Subscriptions</div>
+        </div>
+      </div>
+      <div class="head-actions">
+        <button class="sort-btn" id="sortBtn">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M1 2h8M2 5h6M3 8h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Sort: ${SLBL[tSort]}
+        </button>
+        <button class="btn btn-ink add-tile-btn" id="addTileBtn">+ Add LLM</button>
+      </div>
+    </div>
+
+    <div class="ctrl-bar">
+      <div class="summary">
+        <span class="n">${tt.length}</span> account${tt.length!==1?'s':''} &nbsp;·&nbsp;
+        <span style="color:${expCnt>0?'var(--warn)':'var(--ink3)'}">${expCnt} expiring soon</span>
+      </div>
+      <div class="ctrl-r">
+        <div class="chips">
+          <button class="chip${tFilter==='all'?' on':''}"      data-f="all">All</button>
+          <button class="chip${tFilter==='active'?' on':''}"   data-f="active">Active</button>
+          <button class="chip${tFilter==='expiring'?' on':''}" data-f="expiring">Expiring</button>
+          <button class="chip${tFilter==='expired'?' on':''}"  data-f="expired">Expired</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-shell">
+      <div class="grid" id="tileGrid"></div>
+    </div>
+  `;
+
+  document.getElementById('sortBtn').addEventListener('click',()=>{
+    tSort=SORTS[(SORTS.indexOf(tSort)+1)%SORTS.length]; renderMain();
+  });
+  document.getElementById('addTileBtn').addEventListener('click',()=>openTileModal());
+  document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{ tFilter=c.dataset.f; renderMain(); }));
+  document.getElementById('fab').onclick=()=>openTileModal();
+
+  renderGrid(show);
+}
+
+/* ─────────────────────────────────────────
+   RENDER GRID
+───────────────────────────────────────── */
+function renderGrid(show){
+  const grid=document.getElementById('tileGrid');
+  if(!grid) return;
+  grid.innerHTML='';
+  const CIRC=188.5;
+  const tt=tiles();
+
+  if(!show.length){
+    const el=document.createElement('div');
+    el.className='empty';
+    el.innerHTML=`
+      <div class="empty-box">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+          <rect x="3" y="5" width="20" height="16" rx="3" stroke="var(--ink4)" stroke-width="1.5" fill="none"/>
+          <path d="M7 11l3 2-3 2M12 15h7" stroke="var(--ink4)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="empty-prompt">$ llm-accounts list<span class="blink"></span></div>
+      <div class="empty-title">No accounts found</div>
+      <div class="empty-sub">${tt.length===0
+        ?'Add your first LLM account to start tracking subscriptions, emails and expiry dates.'
+        :'No accounts match the current filter.'}</div>
+      ${tt.length===0?`<button class="btn btn-ink" onclick="openTileModal()" style="margin-top:6px">+ Add first account</button>`:''}
+    `;
+    grid.appendChild(el); return;
+  }
+
+  show.forEach((tile,i)=>{
+    const p=PROV[tile.provider]||PROV.custom;
+    const s=status(tile.expiresAt);
+    const d=dLeft(tile.expiresAt);
+    const off=(CIRC*(1-rPct(tile.expiresAt))).toFixed(2);
+
+    let lbl='',num='',unit='';
+    if(s==='expired')  { lbl='EXPIRED';       num='—'; unit=''; }
+    else if(d===0)      { lbl='EXPIRES TODAY'; num='0'; unit='days'; }
+    else if(d!==null){
+      const a=Math.abs(d);
+      lbl=s==='critical'?'CRITICAL':s==='expiring'?'EXPIRING SOON':'ACTIVE';
+      num=a>=120?Math.round(a/30)+'mo':String(a);
+      unit=a>=120?'left':'days';
+    }
+
+    const tgs=(tile.preferences||[]).slice(0,4);
+    const ov=(tile.preferences||[]).length-4;
+
+    // hourly info
+    const h = tile.hourly||{};
+    const hasHourly = h.enabled && h.intervalMins && h.anchor;
+    let initialPct = 100, initialTimer = '';
+    if(hasHourly){
+      const info = hourlyCycleInfo(h.anchor, h.intervalMins);
+      if(info){ initialPct = info.pct*100; initialTimer = fmtSecs(info.secsLeft); }
+    }
+
+    // hourly badge for header
+    const hourlyBadge = hasHourly
+      ? `<div class="hr-badge">
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+            <circle cx="4.5" cy="4.5" r="3.5" stroke="currentColor" stroke-width="1" fill="none"/>
+            <path d="M4.5 2.5V4.5l1.5 1" stroke="currentColor" stroke-width="1" stroke-linecap="round" fill="none"/>
+          </svg>
+          ${h.intervalMins >= 60
+            ? (h.intervalMins/60 === Math.floor(h.intervalMins/60) ? h.intervalMins/60+'h' : (h.intervalMins/60).toFixed(1)+'h')
+            : h.intervalMins+'m'} cycle
+        </div>`
+      : '';
+
+    // hourly band HTML
+    const hourlyBand = hasHourly ? `
+      <div class="t-hourly">
+        <div class="hr-row">
+          <div class="hr-left">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.1" fill="none"/>
+              <path d="M6 3.5V6l2 1.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+            </svg>
+            <span class="hr-label-txt">${h.label||'Hourly renewal'}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            ${h.costPerCycle ? `<div class="hr-cost">${h.costPerCycle}</div>` : ''}
+            <div class="hr-timer" id="hrt-${tile.id}">${initialTimer}</div>
+          </div>
+        </div>
+        <div class="hr-track">
+          <div class="hr-fill" id="hrf-${tile.id}" style="width:${initialPct.toFixed(2)}%"></div>
+        </div>
+      </div>
+    ` : '';
+
+    const el=document.createElement('div');
+    el.className='tile'; el.dataset.id=tile.id; el.dataset.s=s;
+    el.style.setProperty('--pc',p.c);
+    el.style.animationDelay=`${i*50}ms`;
+
+    el.innerHTML=`
+      <div class="t-handle" data-h>
+        <div class="t-dots">${Array(6).fill('<span></span>').join('')}</div>
+      </div>
+      <div class="t-head">
+        <div class="t-prov">
+          <div class="t-icon" style="color:${p.c}">${p.svg}</div>
+          <div>
+            <div class="t-name">${tile.name}</div>
+            <div class="t-tier">${tile.tier||''}</div>
+            ${hourlyBadge}
+            ${tile.email?`
+            <div class="t-email">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <rect x="1" y="2.5" width="9" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.1" fill="none"/>
+                <path d="M1 4l4.5 3L10 4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" fill="none"/>
+              </svg>
+              <span title="${tile.email}">${tile.email}</span>
+            </div>`:''}
+          </div>
+        </div>
+        <div class="kw">
+          <button class="kbtn" data-k="${tile.id}">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+              <circle cx="7" cy="2.5" r="1.3"/>
+              <circle cx="7" cy="7"   r="1.3"/>
+              <circle cx="7" cy="11.5" r="1.3"/>
+            </svg>
+          </button>
+          <div class="kmenu" id="km-${tile.id}">
+            <button class="ki" onclick="openTileModal('${tile.id}')">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2-7.5 7.5H1.5V9L9 1.5z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>Edit
+            </button>
+            <button class="ki" onclick="dupTile('${tile.id}')">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="3" width="7" height="8" rx="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M4 3V2a1 1 0 011-1h5a1 1 0 011 1v8a1 1 0 01-1 1h-1" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>Duplicate
+            </button>
+            <button class="ki del" onclick="delTile('${tile.id}')">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1.5 3h9M4 3V2h4v1M5 5.5v3M7 5.5v3M2.5 3l.7 7h5.6l.7-7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="t-count">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 70 70">
+            <circle class="r-track" cx="35" cy="35" r="30"/>
+            <circle class="r-fill"  cx="35" cy="35" r="30"
+              data-off="${off}" style="stroke-dashoffset:${CIRC}"/>
+          </svg>
+          <div class="ring-mid">
+            <div class="r-num">${num}</div>
+            <div class="r-unit">${unit}</div>
+          </div>
+        </div>
+        <div class="ct">
+          <div class="ct-lbl">${lbl}</div>
+          <div class="ct-date">${fDate(tile.expiresAt)}</div>
+          <div class="ct-renew">
+            <div class="rdot"></div>
+            ${tile.renewsAuto?'Auto-renews':'Manual renewal'}
+          </div>
+        </div>
+      </div>
+
+      ${hourlyBand}
+
+      <div class="t-foot">
+        <div class="tags">
+          ${tgs.map(t=>`<span class="tag">${t}</span>`).join('')}
+          ${ov>0?`<span class="tag">+${ov}</span>`:''}
+          ${!(tile.preferences||[]).length?`<span class="tag" style="opacity:.35">no tags</span>`:''}
+        </div>
+        <div class="tcost">${tile.cost||''}</div>
+      </div>
+    `;
+    grid.appendChild(el);
+
+    // start live tick for hourly tiles
+    if(hasHourly){
+      startHourlyTimer(tile.id, h.intervalMins, h.anchor);
+    }
+  });
+
+  /* animate rings */
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll('.r-fill').forEach(r=>{ r.style.strokeDashoffset=r.dataset.off; });
+  }));
+
+  bindDrag();
+}
+
+/* ─────────────────────────────────────────
+   KEBAB
+───────────────────────────────────────── */
+document.addEventListener('click', e=>{
+  const k=e.target.closest('[data-k]');
+  if(k){
+    e.stopPropagation();
+    const m=document.getElementById('km-'+k.dataset.k);
+    document.querySelectorAll('.kmenu.open').forEach(x=>{ if(x!==m) x.classList.remove('open'); });
+    m?.classList.toggle('open'); return;
+  }
+  document.querySelectorAll('.kmenu.open').forEach(m=>m.classList.remove('open'));
+});
+
+/* ─────────────────────────────────────────
+   TILE CRUD
+───────────────────────────────────────── */
+function delTile(id){
+  document.querySelectorAll('.kmenu.open').forEach(m=>m.classList.remove('open'));
+  const tt=tiles(); const i=tt.findIndex(t=>t.id===id); if(i===-1)return;
+  const el=document.querySelector(`.tile[data-id="${id}"]`);
+  if(el){ el.style.transition='transform 160ms ease,opacity 160ms ease'; el.style.transform='scale(.88)'; el.style.opacity='0'; }
+  if(hourlyTimers[id]){ clearInterval(hourlyTimers[id]); delete hourlyTimers[id]; }
+  const payload = { userId: activeUID, ids: [id] };
+  setTimeout(()=>{
+    tt.splice(i,1); tt.forEach((t,j)=>t.order=j); setTiles(tt);
+    deleteTileRemote(id).catch(err => {
+      console.error(err);
+      fetchUsers().catch(()=>{}).then(()=>{ renderSidebar(); renderMain(); });
+    }).finally(()=>{ renderSidebar(); renderMain(); toast('Account removed','🗑'); });
+  },160);
+}
+function dupTile(id){
+  document.querySelectorAll('.kmenu.open').forEach(m=>m.classList.remove('open'));
+  const tt=tiles(); const src=tt.find(t=>t.id===id); if(!src)return;
+  const newT={...src,id:uid(),name:src.name+' (copy)',order:tt.length};
+  if(newT.hourly?.enabled && newT.hourly?.anchor){
+    newT.hourly={...newT.hourly, anchor:new Date().toISOString().slice(0,16)};
+  }
+  tt.push(newT);
+  createTileRemote(newT).then(()=>{ renderSidebar(); renderMain(); toast('Account duplicated','⎘'); }).catch(()=>{ renderSidebar(); renderMain(); });
+}
+
+/* ─────────────────────────────────────────
+   TILE MODAL
+───────────────────────────────────────── */
+function openTileModal(id){
+  editTileId=id||null; tileTags=[];
+  const sel=document.getElementById('fProv');
+  sel.innerHTML=Object.entries(PROV).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
+
+  // reset hourly UI
+  document.getElementById('fHourlyEnabled').checked=false;
+  document.getElementById('hourlyFields').classList.add('hidden');
+  document.getElementById('fHourlyLabel').value='';
+  document.getElementById('fHourlyInterval').value='';
+  document.getElementById('fHourlyCost').value='';
+  document.getElementById('fHourlyAnchor').value='';
+
+  if(id){
+    const t=tiles().find(x=>x.id===id); if(!t)return;
+    document.getElementById('tmTitle').textContent='Edit Account';
+    document.getElementById('tmDel').style.display='flex';
+    sel.value=t.provider;
+    document.getElementById('fName').value=t.name||'';
+    document.getElementById('fEmail').value=t.email||'';
+    document.getElementById('fTier').value=t.tier||'';
+    document.getElementById('fCost').value=t.cost||'';
+    document.getElementById('fExp').value=t.expiresAt||'';
+    document.getElementById('fNotes').value=t.notes||'';
+    document.getElementById('fRenew').checked=!!t.renewsAuto;
+    tileTags=[...(t.preferences||[])];
+
+    // populate hourly
+    const h=t.hourly||{};
+    if(h.enabled){
+      document.getElementById('fHourlyEnabled').checked=true;
+      document.getElementById('hourlyFields').classList.remove('hidden');
+      document.getElementById('fHourlyLabel').value=h.label||'';
+      document.getElementById('fHourlyInterval').value=h.intervalMins||60;
+      document.getElementById('fHourlyCost').value=h.costPerCycle||'';
+      document.getElementById('fHourlyAnchor').value=h.anchor||'';
+    }
+  } else {
+    document.getElementById('tmTitle').textContent='Add LLM Account';
+    document.getElementById('tmDel').style.display='none';
+    sel.value='anthropic';
+    ['fName','fEmail','fTier','fCost','fExp','fNotes'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('fRenew').checked=true;
+    tileTags=[];
+  }
+  renderTileTags();
+  document.getElementById('tileOv').classList.add('open');
+}
+function closeTileModal(){ document.getElementById('tileOv').classList.remove('open'); editTileId=null; }
+
+function saveTileModal(){
+  const prov    = document.getElementById('fProv').value;
+  const name    = document.getElementById('fName').value.trim()||PROV[prov]?.n||'LLM Account';
+  const email   = document.getElementById('fEmail').value.trim();
+  const tier    = document.getElementById('fTier').value.trim();
+  const cost    = document.getElementById('fCost').value.trim();
+  const exp     = document.getElementById('fExp').value;
+  const notes   = document.getElementById('fNotes').value.trim();
+  const renew   = document.getElementById('fRenew').checked;
+  const prefs   = [...tileTags];
+
+  const hEnabled  = document.getElementById('fHourlyEnabled').checked;
+  const hLabel    = document.getElementById('fHourlyLabel').value.trim();
+  const hInterval = parseInt(document.getElementById('fHourlyInterval').value)||60;
+  const hCost     = document.getElementById('fHourlyCost').value.trim();
+  const hAnchor   = document.getElementById('fHourlyAnchor').value ||
+                    (hEnabled ? new Date().toISOString().slice(0,16) : '');
+
+  const hourly = {
+    enabled:      hEnabled,
+    label:        hLabel,
+    intervalMins: hInterval,
+    costPerCycle: hCost,
+    anchor:       hAnchor,
+  };
+
+  const tt=tiles();
+
+  if(editTileId){
+    const i=tt.findIndex(t=>t.id===editTileId);
+    if(i>-1) tt[i]={...tt[i],provider:prov,name,email,tier,cost,expiresAt:exp,notes,renewsAuto:renew,preferences:prefs,hourly};
+    updateTileRemote(tt[i]).then(()=>{ renderSidebar(); renderMain(); toast('Account updated','✓'); }).catch(()=>{ renderSidebar(); renderMain(); });
+  } else {
+    const newT={id:uid(),provider:prov,name,email,tier,cost,expiresAt:exp,notes,renewsAuto:renew,preferences:prefs,hourly,order:tt.length};
+    tt.push(newT);
+    createTileRemote(newT).then(()=>{ renderSidebar(); renderMain(); toast('Account added','✓'); }).catch(()=>{ renderSidebar(); renderMain(); });
+  }
+  closeTileModal();
+}
+
+function renderTileTags(){
+  const wrap=document.getElementById('tagWrap'),inp=document.getElementById('tagIn');
+  wrap.querySelectorAll('.tchip').forEach(c=>c.remove());
+  tileTags.forEach(tag=>{
+    const c=document.createElement('div'); c.className='tchip';
+    c.innerHTML=`${tag}<button type="button" onclick="rmTag(this,'${tag}')">×</button>`;
+    wrap.insertBefore(c,inp);
+  });
+}
+function rmTag(btn,tag){ tileTags=tileTags.filter(t=>t!==tag); renderTileTags(); }
+
+document.getElementById('tagIn').addEventListener('keydown',e=>{
+  if(e.key==='Enter'||e.key===','){
+    e.preventDefault();
+    const v=e.target.value.trim().replace(/,/g,'');
+    if(v&&tileTags.length<6&&!tileTags.includes(v)){ tileTags.push(v); renderTileTags(); }
+    e.target.value='';
+  }
+  if(e.key==='Backspace'&&!e.target.value&&tileTags.length){ tileTags.pop(); renderTileTags(); }
+});
+document.getElementById('fProv').addEventListener('change',e=>{
+  const lbl=document.getElementById('fName');
+  if(!lbl.value||Object.values(PROV).some(p=>p.n===lbl.value)) lbl.value=PROV[e.target.value]?.n||'';
+});
+
+// hourly toggle
+document.getElementById('fHourlyEnabled').addEventListener('change',e=>{
+  document.getElementById('hourlyFields').classList.toggle('hidden', !e.target.checked);
+  if(e.target.checked && !document.getElementById('fHourlyInterval').value){
+    document.getElementById('fHourlyInterval').value='60';
+  }
+  if(e.target.checked && !document.getElementById('fHourlyAnchor').value){
+    document.getElementById('fHourlyAnchor').value = new Date().toISOString().slice(0,16);
+  }
+});
+
+document.getElementById('tmX').addEventListener('click',closeTileModal);
+document.getElementById('tmCancel').addEventListener('click',closeTileModal);
+document.getElementById('tmSave').addEventListener('click',saveTileModal);
+document.getElementById('tmDel').addEventListener('click',()=>{ const id=editTileId; closeTileModal(); delTile(id); });
+document.getElementById('tileOv').addEventListener('click',e=>{ if(e.target===e.currentTarget)closeTileModal(); });
+
+/* ─────────────────────────────────────────
+   USER MODAL
+───────────────────────────────────────── */
+function openUserModal(){
+  pickedColor=U_COLORS[users.length%U_COLORS.length];
+  document.getElementById('uName').value='';
+  buildSwatches();
+  document.getElementById('userOv').classList.add('open');
+  setTimeout(()=>document.getElementById('uName').focus(),220);
+}
+function closeUserModal(){ document.getElementById('userOv').classList.remove('open'); }
+
+function buildSwatches(){
+  const row=document.getElementById('colorRow'); row.innerHTML='';
+  U_COLORS.forEach(c=>{
+    const sw=document.createElement('div');
+    sw.className='csw'+(c===pickedColor?' picked':'');
+    sw.style.background=c;
+    sw.addEventListener('click',()=>{ pickedColor=c; buildSwatches(); });
+    row.appendChild(sw);
+  });
+}
+
+function saveUserModal(){
+  const name=document.getElementById('uName').value.trim();
+  if(!name){ document.getElementById('uName').focus(); return; }
+  const u={id:uid(),name,color:pickedColor};
+  createUserRemote(u).then(()=>{
+    users.push(u); byUser[u.id]=[];
+    activeUID=u.id;
+    closeUserModal(); renderSidebar(); renderMain();
+    toast(`${name} added`,'👤');
+  }).catch((err)=>{
+    console.error(err);
+    toast('Could not save','⚠');
+  });
+}
+
+document.getElementById('umX').addEventListener('click',closeUserModal);
+document.getElementById('umCancel').addEventListener('click',closeUserModal);
+document.getElementById('umSave').addEventListener('click',saveUserModal);
+document.getElementById('userOv').addEventListener('click',e=>{ if(e.target===e.currentTarget)closeUserModal(); });
+document.getElementById('addUserBtn').addEventListener('click',openUserModal);
+document.getElementById('uName').addEventListener('keydown',e=>{ if(e.key==='Enter')saveUserModal(); });
+
+/* ─────────────────────────────────────────
+   DRAG & DROP
+───────────────────────────────────────── */
+let drag=null;
+
+function bindDrag(){
+  document.querySelectorAll('[data-h]').forEach(h=>
+    h.addEventListener('pointerdown',startDrag,{passive:false})
+  );
+}
+
+function startDrag(e){
+  if(e.button!==0&&e.pointerType==='mouse') return;
+  const tile=e.currentTarget.closest('.tile'); if(!tile) return;
+  e.preventDefault();
+  const rect=tile.getBoundingClientRect();
+  const ghost=document.getElementById('ghost');
+  ghost.style.cssText=`
+    display:block; position:fixed; z-index:9999; pointer-events:none;
+    width:${rect.width}px; left:${rect.left}px; top:${rect.top}px;
+    background:#fff;
+    border:1px solid rgba(158,132,96,.3);
+    border-left:3px solid ${tile.style.getPropertyValue('--pc')};
+    border-radius:10px;
+    transform:rotate(1.8deg) scale(1.04);
+    box-shadow:0 20px 72px rgba(72,50,16,.22);
+    opacity:.87; overflow:hidden;
+  `;
+  ghost.innerHTML=tile.innerHTML;
+  tile.classList.add('dragging');
+  drag={id:tile.dataset.id, ox:e.clientX-rect.left, oy:e.clientY-rect.top, dropId:null};
+  document.addEventListener('pointermove',onMove,{passive:false});
+  document.addEventListener('pointerup',onEnd);
+  document.addEventListener('pointercancel',onEnd);
+}
+
+function onMove(e){
+  if(!drag) return; e.preventDefault();
+  const g=document.getElementById('ghost');
+  g.style.left=(e.clientX-drag.ox)+'px';
+  g.style.top=(e.clientY-drag.oy)+'px';
+  g.style.display='none';
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  g.style.display='block';
+  const tgt=under?.closest('.tile');
+  document.querySelectorAll('.tile.drop-over').forEach(t=>t.classList.remove('drop-over'));
+  if(tgt&&tgt.dataset.id&&tgt.dataset.id!==drag.id){ tgt.classList.add('drop-over'); drag.dropId=tgt.dataset.id; }
+  else drag.dropId=null;
+}
+
+function onEnd(){
+  if(!drag) return;
+  document.getElementById('ghost').style.display='none';
+  document.querySelectorAll('.tile.dragging').forEach(t=>t.classList.remove('dragging'));
+  document.querySelectorAll('.tile.drop-over').forEach(t=>t.classList.remove('drop-over'));
+  if(drag.dropId&&drag.dropId!==drag.id){
+    const tt=tiles();
+    const fi=tt.findIndex(t=>t.id===drag.id), ti=tt.findIndex(t=>t.id===drag.dropId);
+    if(fi>-1&&ti>-1){
+      const[mv]=tt.splice(fi,1); tt.splice(ti,0,mv);
+      tt.forEach((t,i)=>t.order=i); setTiles(tt);
+      reorderTilesRemote(tt.map((t, i) => ({ id: t.id, order: i }))).then(()=>renderMain()).catch(()=>renderMain());
+    }
+  }
+  document.removeEventListener('pointermove',onMove);
+  document.removeEventListener('pointerup',onEnd);
+  document.removeEventListener('pointercancel',onEnd);
+  drag=null;
+}
+
+/* ─────────────────────────────────────────
+   TOAST
+───────────────────────────────────────── */
+function toast(msg,icon='✓'){
+  const el=document.createElement('div'); el.className='toast';
+  el.innerHTML=`<span style="color:var(--gold);font-size:13px">${icon}</span>${msg}`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),180); },2700);
+}
+
+/* ─────────────────────────────────────────
+   BOOT
+───────────────────────────────────────── */
+boot();
+renderSidebar();
+renderMain();
+</script>
+</body>
+</html>
